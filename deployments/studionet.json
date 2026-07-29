@@ -1,0 +1,7 @@
+{
+  "network": "studionet",
+  "chainId": 61999,
+  "contract": "ProofFund",
+  "address": "0x2aB48F7021Bdda0435e5284D805235E8b16A8f18",
+  "deploymentTransaction": "0x5940ed6fca9b66c20f480935f4b1545343fcbfe4fadc6ff0ab2e938d88cd1c8e"
+}

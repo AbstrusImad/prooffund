@@ -1,0 +1,3 @@
+python-dotenv>=1.0.1
+genlayer-test>=0.4.0
+genvm-linter>=0.1.0

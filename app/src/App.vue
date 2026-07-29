@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted } from "vue";
+import { ref, onMounted } from "vue";
 import { RouterLink, RouterView } from "vue-router";
 import {
   CircleDollarSign,
@@ -17,6 +17,7 @@ import {
 } from "lucide-vue-next";
 import { useProofFund } from "./stores/proofFund";
 import { contractAddress, explorerUrl } from "./services/genlayer";
+import ProofLanding from "./components/ProofLanding.vue";
 
 const {
   state,
@@ -29,23 +30,42 @@ const {
   dismissTransaction,
 } = useProofFund();
 
+const authReady = ref(false);
+const connecting = ref(false);
+
 onMounted(async () => {
   watchWallet();
   await restoreWallet();
-  await refresh();
+  if (isConnected.value) await refresh();
+  authReady.value = true;
 });
 
 const connectSafely = async () => {
+  connecting.value = true;
   try {
     await connect();
   } catch (error) {
     console.error(error);
+  } finally {
+    connecting.value = false;
   }
 };
 </script>
 
 <template>
-  <div class="app-shell">
+  <div v-if="!authReady" class="proof-auth-loader">
+    <span />
+    <strong>VERIFYING WALLET SESSION</strong>
+  </div>
+
+  <ProofLanding
+    v-else-if="!isConnected"
+    :connecting="connecting"
+    :error="state.error"
+    @connect="connectSafely"
+  />
+
+  <div v-else class="app-shell proof-app-enter">
     <header class="topbar">
       <RouterLink class="brand" to="/" aria-label="ProofFund home">
         <span class="brand-mark"><CircleDollarSign :size="21" /></span>

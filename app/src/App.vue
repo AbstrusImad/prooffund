@@ -1,17 +1,10 @@
 <script setup>
-import { ref, onMounted } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { RouterLink, RouterView } from "vue-router";
 import {
-  CircleDollarSign,
-  CheckCircle2,
-  Compass,
+  Check,
   ExternalLink,
-  AlertTriangle,
-  LayoutDashboard,
-  LoaderCircle,
-  Landmark,
-  Plus,
-  UserRound,
+  RefreshCw,
   Wallet,
   X,
 } from "lucide-vue-next";
@@ -32,11 +25,15 @@ const {
 
 const authReady = ref(false);
 const connecting = ref(false);
+const refreshing = ref(false);
+const transactionPending = computed(() =>
+  ["AWAITING_SIGNATURE", "CONSENSUS"].includes(state.transaction?.status),
+);
 
 onMounted(async () => {
   watchWallet();
   await restoreWallet();
-  if (isConnected.value) await refresh();
+  await refresh();
   authReady.value = true;
 });
 
@@ -50,95 +47,116 @@ const connectSafely = async () => {
     connecting.value = false;
   }
 };
+
+const refreshSafely = async () => {
+  refreshing.value = true;
+  try {
+    await refresh();
+  } finally {
+    refreshing.value = false;
+  }
+};
 </script>
 
 <template>
   <div v-if="!authReady" class="proof-auth-loader">
-    <span />
-    <strong>VERIFYING WALLET SESSION</strong>
+    <div class="auth-current"><i /><i /><i /></div>
+    <strong>READING THE PUBLIC LEDGER</strong>
   </div>
 
   <ProofLanding
     v-else-if="!isConnected"
     :connecting="connecting"
     :error="state.error"
+    :dashboard="state.dashboard"
+    :project-count="state.projects.length"
     @connect="connectSafely"
   />
 
   <div v-else class="app-shell proof-app-enter">
-    <header class="topbar">
-      <RouterLink class="brand" to="/" aria-label="ProofFund home">
-        <span class="brand-mark"><CircleDollarSign :size="21" /></span>
-        <span>ProofFund</span>
-      </RouterLink>
+    <div class="flow-brand" aria-label="ProofFund">
+      <span>PF</span>
+      <strong>PROOF<br />FUND</strong>
+    </div>
 
-      <nav class="desktop-nav" aria-label="Primary navigation">
-        <RouterLink to="/"><LayoutDashboard :size="17" /> Overview</RouterLink>
-        <RouterLink to="/projects/new"><Plus :size="17" /> Launch</RouterLink>
-        <RouterLink to="/governance"><Landmark :size="17" /> Governance</RouterLink>
-        <RouterLink to="/profile"><UserRound :size="17" /> Portfolio</RouterLink>
-      </nav>
+    <nav class="route-current" aria-label="Primary navigation">
+      <RouterLink to="/"><span>01</span>FLOW</RouterLink>
+      <RouterLink to="/projects/new"><span>02</span>SOURCE</RouterLink>
+      <RouterLink to="/governance"><span>03</span>VOTE</RouterLink>
+      <RouterLink to="/profile"><span>04</span>CLAIM</RouterLink>
+    </nav>
 
-      <div class="topbar-actions">
-        <a
-          class="network-pill"
-          :href="explorerUrl"
-          target="_blank"
-          rel="noreferrer"
-          title="Open StudioNet explorer"
-        >
-          <span class="live-dot"></span>
-          StudioNet
-          <ExternalLink :size="13" />
-        </a>
-        <button class="wallet-button" type="button" @click="connectSafely">
-          <Wallet :size="17" />
-          <span>{{ isConnected ? walletLabel : "Connect wallet" }}</span>
-        </button>
-      </div>
-    </header>
+    <div class="network-valves">
+      <a
+        :href="explorerUrl"
+        target="_blank"
+        rel="noreferrer"
+        title="Open StudioNet explorer"
+      >
+        <i />
+        <span>STUDIONET</span>
+        <ExternalLink :size="14" />
+      </a>
+      <button type="button" :class="{ spinning: refreshing }" title="Refresh live data" @click="refreshSafely">
+        <RefreshCw :size="16" />
+      </button>
+      <button type="button" title="Reconnect wallet" @click="connectSafely">
+        <Wallet :size="16" />
+        <span>{{ walletLabel }}</span>
+      </button>
+    </div>
 
-    <main>
+    <main class="flow-stage">
       <div v-if="!contractAddress" class="configuration-alert">
-        Contract deployment is not configured yet.
+        CONTRACT SOURCE IS CLOSED
       </div>
       <RouterView />
     </main>
 
-    <nav class="mobile-nav" aria-label="Mobile navigation">
-      <RouterLink to="/"><LayoutDashboard :size="19" /><span>Overview</span></RouterLink>
-      <RouterLink to="/projects/new"><Plus :size="19" /><span>Launch</span></RouterLink>
-      <RouterLink to="/governance"><Landmark :size="19" /><span>Governance</span></RouterLink>
-      <RouterLink to="/profile"><UserRound :size="19" /><span>Portfolio</span></RouterLink>
-    </nav>
-
-    <aside v-if="state.transaction" class="transaction-dock" aria-live="polite">
-      <div class="transaction-icon" :class="state.transaction.status.toLowerCase()">
-        <CheckCircle2 v-if="state.transaction.status === 'ACCEPTED'" :size="20" />
-        <AlertTriangle v-else-if="state.transaction.status === 'FAILED'" :size="20" />
-        <LoaderCircle v-else :size="20" />
+    <aside
+      v-if="state.transaction"
+      class="capital-current"
+      :class="{
+        pending: transactionPending,
+        accepted: state.transaction.status === 'ACCEPTED',
+        failed: state.transaction.status === 'FAILED',
+      }"
+      aria-live="polite"
+    >
+      <div class="current-pipe" aria-hidden="true">
+        <span v-for="index in 7" :key="index" />
       </div>
-      <div>
+      <div class="current-stage">
+        <small>ACTIVE CAPITAL CURRENT</small>
         <strong>{{ state.transaction.label }}</strong>
-        <span>{{ state.transaction.status.replaceAll("_", " ") }}</span>
+      </div>
+      <div class="current-result">
+        <span class="current-status">
+          <i v-if="transactionPending" />
+          <Check v-else-if="state.transaction.status === 'ACCEPTED'" :size="16" />
+          <X v-else :size="16" />
+          {{ state.transaction.status.replaceAll("_", " ") }}
+        </span>
         <p>{{ state.transaction.message }}</p>
-        <small v-if="state.transaction.error">{{ state.transaction.error }}</small>
+        <b v-if="state.transaction.error">{{ state.transaction.error }}</b>
         <a
           v-if="state.transaction.hash"
           :href="`${explorerUrl}/tx/${state.transaction.hash}`"
           target="_blank"
           rel="noreferrer"
         >
-          {{ state.transaction.hash.slice(0, 10) }}...{{ state.transaction.hash.slice(-6) }}
+          {{ state.transaction.hash.slice(0, 12) }}...{{ state.transaction.hash.slice(-8) }}
           <ExternalLink :size="12" />
         </a>
       </div>
       <button
+        v-if="!transactionPending"
+        class="current-close"
         type="button"
-        title="Dismiss transaction"
+        title="Dismiss transaction result"
         @click="dismissTransaction"
       >
-        <X :size="17" />
+        <X :size="18" />
       </button>
     </aside>
   </div>

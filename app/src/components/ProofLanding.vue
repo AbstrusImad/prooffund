@@ -1,100 +1,83 @@
 <script setup>
 import {
-  ArrowRight,
-  CheckCircle2,
+  ArrowDownRight,
   ExternalLink,
   FileCheck2,
   LoaderCircle,
-  LockKeyhole,
   Wallet,
 } from "lucide-vue-next";
-import { contractAddress, explorerUrl } from "../services/genlayer";
+import { contractAddress, explorerUrl, fromWei } from "../services/genlayer";
 
 defineProps({
   connecting: { type: Boolean, default: false },
   error: { type: String, default: "" },
+  dashboard: { type: Object, default: null },
+  projectCount: { type: Number, default: 0 },
 });
 defineEmits(["connect"]);
-
-const projectImages = [
-  "pf-0001.jpg",
-  "pf-0004.jpg",
-  "pf-0007.jpg",
-  "pf-0009.jpg",
-].map((name) => `${import.meta.env.BASE_URL}projects/${name}`);
 </script>
 
 <template>
   <section class="proof-landing">
-    <div class="proof-contact-sheet" aria-hidden="true">
-      <figure v-for="(image, index) in projectImages" :key="image">
-        <img :src="image" alt="" />
-        <span>0{{ index + 1 }} / PUBLIC EVIDENCE</span>
-      </figure>
-    </div>
-    <div class="proof-landing-wash" aria-hidden="true" />
-    <div class="proof-ledger-lines" aria-hidden="true" />
+    <div class="landing-word word-fund" aria-hidden="true">FUND</div>
+    <div class="landing-word word-proof" aria-hidden="true">PROOF</div>
+    <div class="landing-word word-release" aria-hidden="true">RELEASE</div>
 
-    <header class="proof-landing-header">
-      <div class="proof-landing-brand">
-        <span class="proof-seal"><FileCheck2 :size="19" /></span>
-        <div>
-          <strong>PROOFFUND</strong>
-          <small>VALIDATOR-GOVERNED CAPITAL</small>
-        </div>
-      </div>
+    <div class="landing-streams" aria-hidden="true">
+      <div class="stream stream-a"><i v-for="n in 8" :key="`a${n}`" /></div>
+      <div class="stream stream-b"><i v-for="n in 6" :key="`b${n}`" /></div>
+      <div class="stream stream-c"><i v-for="n in 7" :key="`c${n}`" /></div>
+    </div>
+
+    <header class="landing-index">
+      <span class="proof-monogram"><FileCheck2 :size="18" /> PF / 001</span>
       <a :href="explorerUrl" target="_blank" rel="noreferrer">
-        <i />
-        StudioNet
-        <ExternalLink :size="13" />
+        LIVE ON STUDIONET <ExternalLink :size="13" />
       </a>
     </header>
 
-    <div class="proof-landing-copy">
-      <span class="proof-folio">INSTRUMENT / 001</span>
-      <h1>
-        Capital waits.<br />
-        <em>Proof moves it.</em>
-      </h1>
+    <div class="landing-statement">
+      <small>CAPITAL RELEASE INFRASTRUCTURE</small>
+      <h1>Money should<br />move after proof.</h1>
       <p>
-        Fund public work in bounded tranches. Release capital only when
-        independent GenLayer validators confirm the evidence.
+        Sponsor verifiable public work. Capital waits in bounded tranches while
+        GenLayer validators inspect evidence, resolve disputes and authorize release.
       </p>
     </div>
 
-    <div class="proof-verification-rail" aria-hidden="true">
-      <div><CheckCircle2 :size="14" /> Tranche escrow</div>
-      <i />
-      <div><FileCheck2 :size="14" /> Evidence consensus</div>
-      <i />
-      <div><LockKeyhole :size="14" /> Governed release</div>
+    <div class="landing-live-ledger">
+      <div>
+        <span>{{ projectCount }}</span>
+        <small>PROJECT<br />RESERVOIRS</small>
+      </div>
+      <div>
+        <span>{{ fromWei(dashboard?.total_funded || 0) }}</span>
+        <small>GEN<br />COMMITTED</small>
+      </div>
+      <div>
+        <span>{{ dashboard?.total_disputes || 0 }}</span>
+        <small>DISPUTE<br />CHANNELS</small>
+      </div>
     </div>
 
-    <footer class="proof-signature-gate">
-      <div class="proof-contract-reference">
-        <span>LIVE CONTRACT</span>
-        <strong>
-          {{ contractAddress.slice(0, 8) }}...{{ contractAddress.slice(-6) }}
-        </strong>
-      </div>
-      <div class="proof-gate-statement">
-        <span>WALLET SIGNATURE REQUIRED</span>
-        <p>Your wallet opens the live funding ledger and signing workflows.</p>
-      </div>
-      <button
-        type="button"
-        :disabled="connecting"
-        @click="$emit('connect')"
-      >
-        <LoaderCircle v-if="connecting" class="proof-connect-spinner" :size="19" />
-        <Wallet v-else :size="19" />
-        <span>
-          <small>{{ connecting ? "REQUESTING SIGNATURE" : "ENTER THE LEDGER" }}</small>
-          <strong>{{ connecting ? "Check your wallet" : "Connect wallet" }}</strong>
-        </span>
-        <ArrowRight :size="18" />
-      </button>
-    </footer>
+    <button
+      class="source-valve"
+      type="button"
+      :disabled="connecting"
+      @click="$emit('connect')"
+    >
+      <span class="valve-rim" aria-hidden="true" />
+      <LoaderCircle v-if="connecting" class="valve-loader" :size="34" />
+      <Wallet v-else :size="34" />
+      <strong>{{ connecting ? "SIGN" : "OPEN" }}</strong>
+      <small>{{ connecting ? "CHECK WALLET" : "CONNECT WALLET" }}</small>
+      <ArrowDownRight :size="20" />
+    </button>
+
+    <div class="landing-contract">
+      <small>PUBLIC SOURCE</small>
+      <span>{{ contractAddress }}</span>
+    </div>
 
     <p v-if="error" class="proof-landing-error">{{ error }}</p>
   </section>

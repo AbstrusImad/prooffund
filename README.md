@@ -1,228 +1,255 @@
 # ProofFund
 
-### Validator-governed capital for verifiable public work
+**A pressure map for accountable capital on GenLayer StudioNet**
 
-[![Live App](https://img.shields.io/badge/Live%20App-GitHub%20Pages-117A55?style=for-the-badge)](https://abstrusimad.github.io/prooffund/)
-[![Network](https://img.shields.io/badge/GenLayer-StudioNet-17191B?style=for-the-badge)](https://explorer-studio.genlayer.com)
-[![Contract Tests](https://img.shields.io/badge/Direct%20Tests-8%2F8-17A673?style=for-the-badge)](#quality-and-testing)
-[![License](https://img.shields.io/badge/License-MIT-8ED7E2?style=for-the-badge)](LICENSE)
+[Enter the live protocol](https://abstrusimad.github.io/prooffund/) ·
+[Inspect the contract](https://explorer-studio.genlayer.com/address/0x2aB48F7021Bdda0435e5284D805235E8b16A8f18) ·
+[Trace the deployment](https://explorer-studio.genlayer.com/tx/0x5940ed6fca9b66c20f480935f4b1545343fcbfe4fadc6ff0ab2e938d88cd1c8e)
 
-**Live application:** [https://abstrusimad.github.io/prooffund/](https://abstrusimad.github.io/prooffund/)
+![ProofFund capital-flow workspace](app/proof-desktop.png)
 
-ProofFund is a full-stack GenLayer dApp for financing projects through bounded
-funding tranches, explicit delivery milestones, public evidence, validator
-consensus, bonded disputes, and contribution-weighted governance. It replaces
-simple payment promises with an auditable lifecycle in which capital, evidence,
-decisions, appeals, and reputation remain connected on-chain.
+## The Pressure Test
 
-![ProofFund dashboard](app/proof-desktop.png)
+Funding usually moves before anyone can inspect whether the promised outcome
+exists. ProofFund reverses that sequence. Sponsors inject GEN into bounded
+tranches, the contract holds it, creators publish evidence, and independent
+GenLayer validators decide whether each acceptance condition has actually been
+met. Capital advances only after the evidence gate opens.
 
-## Live StudioNet Deployment
+This is not a consensus-answer wrapper. Validator judgment changes durable
+protocol state: it records a reasoned verdict, releases escrow, creates
+claimable balances, enables a bonded appeal path, updates reputation, and can
+advance the project lifecycle.
 
-| Resource | Value |
-| --- | --- |
-| Network | GenLayer StudioNet |
+## Live Pressure Readings
+
+The public deployment currently exposes:
+
+- **9** project reservoirs
+- **27** bounded funding tranches
+- **57 GEN** committed through real StudioNet transactions
+- **3** open contribution-weighted proposals
+- **3** open bonded disputes
+- **0** mocked protocol records
+
+| Network proof | Value |
+|---|---|
+| Chain | GenLayer StudioNet, chain ID `61999` |
 | Intelligent Contract | `0x2aB48F7021Bdda0435e5284D805235E8b16A8f18` |
-| Deployment transaction | [`0x5940...1c8e`](https://explorer-studio.genlayer.com/tx/0x5940ed6fca9b66c20f480935f4b1545343fcbfe4fadc6ff0ab2e938d88cd1c8e) |
-| Live registry | 9 projects |
-| Funding tranches | 27 on-chain tranches |
-| Committed capital | 57 GEN |
-| Governance | 3 open proposals with weighted votes |
-| Adjudication | 3 open bonded disputes |
+| Deployment transaction | `0x5940ed6fca9b66c20f480935f4b1545343fcbfe4fadc6ff0ab2e938d88cd1c8e` |
+| Explorer | [explorer-studio.genlayer.com](https://explorer-studio.genlayer.com) |
+| Repository | [AbstrusImad/prooffund](https://github.com/AbstrusImad/prooffund) |
+| Application | [abstrusimad.github.io/prooffund](https://abstrusimad.github.io/prooffund/) |
 
-All registry data displayed by the application is read directly from StudioNet.
-Project creation, tranche funding, proposals, votes, evidence submissions,
-milestone evaluations, disputes, and claims are real contract transactions.
+Every number shown in the application is read from the deployed contract. The
+frontend has no protocol-data fixture, private indexing API, or fallback record
+set.
 
-## Why ProofFund
-
-Traditional crowdfunding releases capital before outcomes can be objectively
-inspected. Basic oracle dApps often stop after returning a consensus answer.
-ProofFund turns GenLayer consensus into a complete coordination protocol:
-
-1. Creators define a project, staged capital requirements, and measurable
-   milestone acceptance criteria.
-2. Sponsors fund individual tranches while funds remain in contract escrow.
-3. Creators submit public HTTPS evidence for completed milestones.
-4. GenLayer validators inspect the evidence using LLM-backed web reasoning.
-5. Accepted outcomes release claimable capital; weak evidence receives a
-   durable explanation instead of an opaque failure.
-6. Participants can open bonded disputes with counter-evidence.
-7. Contributors govern project signals and executable funding actions using
-   contribution-weighted votes.
-
-## Core Capabilities
-
-### Staged Funding
-
-- Multiple bounded tranches per project
-- Independent tranche targets, deadlines, status, and backer counts
-- Payable StudioNet transactions with exact remainder checks
-- Automatic project activation after full funding
-- Escrow accounting for committed, released, and claimable GEN
-
-### Intelligent Milestone Adjudication
-
-- Explicit project-specific acceptance criteria
-- Public evidence URL and evidence-note submission
-- LLM-backed validator evaluation through GenLayer consensus
-- Structured verdict, score, analysis, and findings persisted on-chain
-- Resubmission support for rejected or incomplete evidence
-- Graceful rejection when external evidence cannot be reached
-
-### Governance
-
-- Proposals created by project creators or contributors
-- Contribution-weighted voting with one vote per address
-- Snapshot quorum equal to 20% of funded capital
-- Signal, deadline-extension, funding-pause, and funding-reopen actions
-- Permissionless finalization after the voting deadline
-- Executable approved actions and permanent voting records
-
-### Disputes and Reputation
-
-- Bonded challenges against milestone verdicts
-- Public counter-evidence and validator re-adjudication
-- Overturn and uphold outcomes
-- Reputation for projects created, projects backed, approved milestones,
-  disputes won/lost, proposals created, votes cast, funding, and earnings
-
-### Production Frontend
-
-- Responsive Vue interface for desktop and mobile
-- Persistent wallet reconnection after refresh
-- Transaction lifecycle feedback from signature through consensus
-- Human-readable GenVM rollback decoding
-- StudioNet saturation retries and recoverable loading states
-- Local project media with deterministic fallbacks
-- Direct links to the current StudioNet explorer
-
-## Architecture
+## Follow One Unit of GEN
 
 ```mermaid
 flowchart LR
-    W["Browser Wallet"] --> UI["Vue Application"]
-    UI --> SDK["genlayer-js"]
-    SDK --> IC["ProofFund Intelligent Contract"]
-    IC --> ESC["GEN Escrow"]
-    IC --> GOV["Governance State"]
-    IC --> REP["Reputation State"]
-    IC --> VAL["GenLayer Validators"]
-    VAL --> WEB["Public HTTPS Evidence"]
-    VAL --> IC
+    S["Sponsor source"] -->|fund_tranche + GEN| E["Contract escrow"]
+    E --> T["Bounded tranche"]
+    T --> M["Milestone criteria"]
+    M -->|public HTTPS evidence| V["GenLayer validator consensus"]
+    V -->|accepted| R["Creator claimable balance"]
+    V -->|rejected with explanation| C["Evidence correction"]
+    V -->|bonded challenge| D["Dispute re-adjudication"]
+    D -->|overturn or uphold| R
+    S -->|contribution weight| G["Project governance"]
+    G -->|approved executable action| T
 ```
 
-The frontend has no private backend or mock-data service. Reads and writes use
-`genlayer-js` directly. The Intelligent Contract owns protocol state, access
-control, escrow accounting, voting, consensus calls, dispute resolution, and
-claimable balances.
+The same route appears in the interface as a live capital field. Projects are
+vertical reservoirs, tranche and evidence state become connected channels, and
+every write becomes an animated current. The current remains active through
+wallet signature and validator consensus, then stops in a persistent accepted
+or failed result with the transaction hash and a StudioNet explorer link.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for trust boundaries and
-contract-level design details.
+## Contract State Channels
 
-## Repository Structure
+**Project channel.** A creator publishes identity, public context, a goal,
+deadline, and initial tranche. Additional tranches cannot push the combined
+target beyond the project goal.
+
+**Escrow channel.** Sponsors fund a selected tranche with payable GEN.
+Accounting tracks contribution weight, total escrow, released value, and
+claimable balances without trusting the frontend.
+
+**Evidence channel.** A milestone binds a title, amount, deadline, acceptance
+criteria, and evidence requirements. Creators submit a public HTTPS source and
+an explanatory note.
+
+**Intelligence channel.** Validators inspect project context, criteria, and
+evidence using LLM-backed web reasoning. The contract normalizes the response
+into a verdict, score, analysis, and findings before changing state.
+
+**Challenge channel.** A participant can post a GEN bond and counter-evidence.
+Consensus re-evaluates the record and persists whether the original verdict was
+upheld or overturned.
+
+**Governance channel.** Contributors receive voting weight from actual funding.
+Proposals can signal intent or execute project actions such as pausing funding,
+reopening it, or extending a deadline after quorum and finalization.
+
+**Reputation channel.** Address profiles accumulate projects created, projects
+backed, funded value, approved milestones, disputes won or lost, proposals,
+votes, earnings, and claims.
+
+## Decision Envelope
+
+Milestone evaluation is deliberately constrained. Validators receive the
+project-specific acceptance conditions, evidence URL, submission note, and
+relevant project context. The equivalence principle asks the network to agree
+on the normalized decision rather than identical prose.
+
+A successful result persists:
 
 ```text
-prooffund/
-|-- contracts/proof_fund.py        # Production Intelligent Contract
-|-- app/                           # Vue + Vite frontend
-|   |-- public/projects/           # Reliable local project media
-|   `-- src/                       # Views, store, services, components
-|-- deploy/                        # GenLayer CLI deployment script
-|-- deployments/studionet.json     # Public deployment metadata
-|-- scripts/                       # Idempotent live-state preparation tools
-|-- tests/direct/                  # Fast direct-mode contract tests
-|-- tests/integration/             # StudioNet integration smoke test
-|-- docs/ARCHITECTURE.md
-`-- .github/workflows/             # GitHub Pages deployment
+verdict      APPROVED | REJECTED
+score        bounded numeric confidence
+analysis     readable project-specific reasoning
+findings     normalized evidence observations
+state effect milestone transition + escrow release when approved
 ```
 
-## Local Development
+Unreachable, generic, stale, or insufficient evidence does not silently pass.
+Expected weakness becomes a durable rejection explanation. External and
+transient failures remain distinguishable from an evidence verdict, while
+frontend error extraction inspects GenVM receipt payloads to avoid
+`[object Object]` and opaque rollback messages.
 
-### Prerequisites
+## Public Method Surface
 
-- Node.js 22+
-- pnpm through Corepack
-- Python 3.11+
-- GenLayer CLI and GenVM linter
-- A browser wallet configured for StudioNet
+| Family | Writes | Reads |
+|---|---|---|
+| Projects | `create_project`, `add_funding_tranche` | `get_projects`, `get_project`, `get_dashboard` |
+| Capital | `fund_tranche`, `fund_project`, `claim` | `get_tranches`, `get_contribution`, `get_profile` |
+| Delivery | `add_milestone`, `submit_evidence`, `evaluate_milestone` | `get_milestones` |
+| Appeals | `open_dispute`, `resolve_dispute` | `get_disputes` |
+| Governance | `create_proposal`, `vote_proposal`, `finalize_proposal` | `get_proposals`, `get_governance`, `get_vote` |
 
-### Install and run
+Authorization, text bounds, payable-value checks, deadlines, status transitions,
+single-vote rules, quorum, and accounting invariants are enforced inside
+`contracts/proof_fund.py`.
+
+## Operator Interface
+
+The Vue application is organized as four perimeter routes:
+
+- **FLOW** maps the live registry, capital totals, project fill levels, and
+  StudioNet status.
+- **SOURCE** creates a project through sequential input channels with immediate
+  validation.
+- **VOTE** exposes open, passed, and rejected governance branches with weighted
+  totals.
+- **CLAIM** reads the connected address profile, owned projects, reputation,
+  and claimable GEN.
+
+A disconnected visitor always enters through the dedicated wallet source valve.
+After explicit connection, the choice is persisted in
+`prooffund.wallet.connected`; refresh silently restores the session when the
+wallet still exposes the account. The operational shell is never rendered for
+an unconnected wallet.
+
+The responsive model is structural, not a scaled desktop. Horizontal capital
+routes become a vertical river, edge navigation moves into a thumb-reachable
+current, action gates become bottom chambers, and transaction results stay
+visible above the route controls.
+
+## Repository Cross-Section
+
+```text
+contracts/proof_fund.py          Intelligent Contract and protocol invariants
+tests/direct/                    Direct-mode lifecycle and adversarial tests
+tests/integration/               StudioNet integration checks
+deploy/                          GenLayer deployment entrypoint
+deployments/studionet.json       Canonical public deployment metadata
+scripts/                         Idempotent live-state preparation
+app/src/services/genlayer.js     SDK reads, writes, retries, receipt decoding
+app/src/stores/proofFund.js      Wallet persistence and transaction state machine
+app/src/views/                   Flow, source, project, vote, and claim surfaces
+.github/workflows/               Locked GitHub Pages publication
+```
+
+The architecture and trust boundaries are expanded in
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+## Bring Up a Local Current
+
+Requirements: Node.js 22+, Corepack, pnpm, Python 3.11+, GenVM lint tooling, and
+a StudioNet-compatible browser wallet.
 
 ```bash
 git clone https://github.com/AbstrusImad/prooffund.git
 cd prooffund
-
 corepack pnpm install
+
 cd app
 corepack pnpm install
 cp .env.example .env
 corepack pnpm run dev
 ```
 
-Open `http://localhost:5173`.
+Open `http://localhost:5173`. The frontend recognizes only these public
+variables:
 
-The committed `.env.example` contains only public network configuration. Real
-`.env` files and private keys are excluded by the root `.gitignore`.
+```dotenv
+VITE_CONTRACT_ADDRESS=<deployed intelligent contract address>
+VITE_EXPLORER_URL=<current StudioNet explorer origin>
+```
 
-## Quality and Testing
+No wallet key belongs in a Vite variable. Root and nested `.env` files are
+ignored; only value-free or public `.env.example` files may be committed.
 
-Validate the Intelligent Contract:
+## Verification Bench
 
 ```bash
 genvm-lint check contracts/proof_fund.py
 python -m pytest tests/direct -q
-```
 
-Build the frontend:
-
-```bash
 cd app
 corepack pnpm run build
 ```
 
-Current verification baseline:
+Current release evidence:
 
-- GenVM lint: passed
-- Direct contract tests: 8 passed
-- Frontend production build: passed
-- Desktop and mobile browser inspection: passed
-- StudioNet state verification: 9 projects, 27 tranches, 57 GEN, 3 proposals,
-  and 3 disputes
+- GenVM lint passed.
+- 8 direct contract tests passed.
+- The production Vite build passed.
+- Desktop and mobile browser inspection passed with no runtime console errors.
+- Live reads returned 9 projects, 27 tranches, 57 funded GEN, 3 proposals, and
+  3 disputes.
+- Wallet restoration, direct routes, local image fallbacks, action gates,
+  transaction terminal states, and readable receipt failures are implemented.
 
-## Deployment
+## Deployment Boundary
 
-### Intelligent Contract
+`npx genlayer deploy` uses `gltest.config.yaml` and obtains the deployer
+credential from the local environment. The credential is never read by the
+frontend, copied into build output, or stored in deployment metadata.
 
-```bash
-npx genlayer deploy
-```
+Pushes to `main` trigger `.github/workflows/deploy-pages.yml`. The workflow
+installs locked dependencies, injects only the public contract and explorer
+values, builds with `/prooffund/` as its base path, creates the SPA fallback,
+and publishes to GitHub Pages.
 
-Deployment uses `gltest.config.yaml` and reads the wallet key from the local
-environment. Never commit a funded private key.
+## Security Posture
 
-### GitHub Pages
+- Explicit wallet approval is required for every write.
+- A global transaction guard rejects duplicate submissions during signature or
+  consensus.
+- Funding and dispute bonds are contract-accounted.
+- Consensus output is normalized before state mutation.
+- Accepted writes refresh live state while preserving the terminal receipt.
+- Saturated StudioNet reads and writes use bounded backoff.
+- Project images use local deterministic fallbacks.
+- The deployment is a StudioNet protocol release, not an audited mainnet
+  financial product.
 
-Every push to `main` runs `.github/workflows/deploy-pages.yml`. The workflow:
+## Release Mark
 
-1. Installs the locked frontend dependencies.
-2. Injects the public StudioNet contract and explorer configuration.
-3. Builds the Vite application under the `/prooffund/` base path.
-4. Adds an SPA fallback for direct project and governance routes.
-5. Publishes the artifact to GitHub Pages.
-
-## Security Notes
-
-- No private key is bundled into the application or repository.
-- Wallet signatures are requested only for explicit write operations.
-- Funding and dispute bonds are accounted for by the contract.
-- Governance votes cannot be replayed by the same address.
-- Consensus output is normalized and validated before state transitions.
-- External evidence failures produce inspectable outcomes instead of silently
-  corrupting escrow state.
-- This is a StudioNet deployment intended for demonstration and protocol
-  testing; it has not undergone a third-party security audit.
-
-## License
-
-Released under the [MIT License](LICENSE).
+ProofFund is published under the [MIT License](LICENSE). The contract address,
+deployment transaction, live application, and repository above are the
+canonical references for this release.

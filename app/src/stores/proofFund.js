@@ -95,6 +95,14 @@ async function transact(
   value = 0n,
   options = {},
 ) {
+  if (
+    state.transaction &&
+    ["AWAITING_SIGNATURE", "CONSENSUS"].includes(state.transaction.status)
+  ) {
+    throw new Error(
+      `${state.transaction.label} is already moving through StudioNet consensus.`,
+    );
+  }
   state.error = "";
   state.transaction = {
     label,

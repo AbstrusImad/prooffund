@@ -10,11 +10,15 @@ defineEmits(["close"]);
 <template>
   <div class="modal-backdrop" @click.self="$emit('close')">
     <section class="modal-panel" role="dialog" aria-modal="true" :aria-label="title">
+      <div class="gate-number">ACTION<br />GATE</div>
       <header>
-        <div><span>{{ eyebrow }}</span><h2>{{ title }}</h2></div>
-        <button type="button" title="Close" @click="$emit('close')"><X :size="20" /></button>
+        <span>{{ eyebrow }}</span>
+        <h2>{{ title }}</h2>
+        <button type="button" title="Close action gate" @click="$emit('close')">
+          <X :size="22" />
+        </button>
       </header>
-      <slot />
+      <div class="gate-content"><slot /></div>
     </section>
   </div>
 </template>

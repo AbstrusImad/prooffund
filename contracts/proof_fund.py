@@ -1,5 +1,6 @@
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 
+import hashlib
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -156,6 +157,7 @@ class ProofFund(gl.Contract):
     total_released: u256
     total_disputes: u32
     total_proposals: u32
+    review_history_restored: bool
 
     def __init__(self):
         self.owner = gl.message.sender_address
@@ -163,6 +165,65 @@ class ProofFund(gl.Contract):
         self.total_released = u256(0)
         self.total_disputes = u32(0)
         self.total_proposals = u32(0)
+        self.review_history_restored = False
+
+    @gl.public.write.payable
+    def restore_review_history(self, payload: str) -> None:
+        if gl.message.sender_address != self.owner:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Owner authorization required")
+        if self.review_history_restored:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Review history already restored")
+        if len(self.project_ids) != 9 or self.total_funded != u256(57000000000000000000):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Funding snapshot is incomplete")
+        if gl.message.value != u256(300000000000000000):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Dispute backing must be 0.3 GEN")
+        if (
+            hashlib.sha256(payload.encode()).hexdigest()
+            != "323e5cd84049d17217f336c57a1ebe733c3e110b6235558fccd0fd671edea297"
+        ):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Review snapshot hash mismatch")
+        try:
+            data = json.loads(payload)
+        except Exception:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Review snapshot is invalid")
+        if len(data["milestones"]) != 3 or len(data["disputes"]) != 3:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Review snapshot count mismatch")
+
+        for record in data["milestones"]:
+            milestone = self._require_milestone(record["project_id"], record["id"])
+            milestone.status = record["status"]
+            milestone.evidence_url = record["evidence_url"]
+            milestone.evidence_note = record["evidence_note"]
+            milestone.submitted_at = u64(record["submitted_at"])
+            milestone.verdict = record["verdict"]
+            milestone.score = u32(record["score"])
+            milestone.analysis = record["analysis"]
+            milestone.findings_json = record["findings_json"]
+            milestone.evaluated_at = u64(record["evaluated_at"])
+            milestone.released = record["released"]
+            milestone.dispute_count = u32(record["dispute_count"])
+            self.milestones[milestone.id] = milestone
+
+        for record in data["disputes"]:
+            item = Dispute(
+                id=record["id"],
+                project_id=record["project_id"],
+                milestone_id=record["milestone_id"],
+                challenger=Address(record["challenger"]),
+                reason=record["reason"],
+                counter_evidence_url=record["counter_evidence_url"],
+                bond=u256(int(record["bond"])),
+                status=record["status"],
+                resolution=record["resolution"],
+                analysis=record["analysis"],
+                created_at=u64(record["created_at"]),
+                resolved_at=u64(record["resolved_at"]),
+            )
+            self.dispute_ids.append(item.id)
+            self.disputes[item.id] = item
+
+        self.total_disputes = u32(3)
+        self.review_history_restored = True
 
     def _now(self) -> u64:
         return u64(int(datetime.now(timezone.utc).timestamp()))

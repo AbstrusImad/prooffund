@@ -87,7 +87,7 @@ const projects = computed(() =>
 
     <section id="market" class="market-section">
       <div class="section-heading">
-        <div><span class="eyebrow">StudioNet registry</span><h2>Capital in motion</h2></div>
+        <div><span class="eyebrow">Bradbury registry</span><h2>Capital in motion</h2></div>
         <span>{{ projects.length }} on-chain records</span>
       </div>
 

@@ -32,7 +32,7 @@ defineEmits(["connect"]);
     <header class="landing-index">
       <span class="proof-monogram"><FileCheck2 :size="18" /> PF / 001</span>
       <a :href="explorerUrl" target="_blank" rel="noreferrer">
-        LIVE ON STUDIONET <ExternalLink :size="13" />
+        LIVE ON BRADBURY <ExternalLink :size="13" />
       </a>
     </header>
 

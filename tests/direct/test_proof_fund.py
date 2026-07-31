@@ -1,6 +1,9 @@
 import json
 import time
 from datetime import datetime, timezone
+from pathlib import Path
+
+import pytest
 
 
 FUTURE = 4_102_444_800
@@ -9,6 +12,8 @@ DESCRIPTION = (
     "ProofFund finances verifiable public-interest software through explicit "
     "milestones, public evidence, validator adjudication, and transparent escrow."
 )
+CONTRACT = "contracts/proof_fund.py"
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def address_hex(address):
@@ -17,7 +22,21 @@ def address_hex(address):
 
 def deploy_as(direct_vm, direct_deploy, sender):
     direct_vm.sender = sender
-    return direct_deploy("contracts/proof_fund.py")
+    direct_vm.value = 0
+    return direct_deploy(CONTRACT)
+
+
+def test_review_restore_requires_complete_funding_snapshot(
+    direct_vm, direct_deploy, direct_alice
+):
+    contract = deploy_as(direct_vm, direct_deploy, direct_alice)
+    manifest = json.loads(
+        (ROOT / "deployments/migration-manifest.json").read_text()
+    )
+    direct_vm.value = 300_000_000_000_000_000
+    with direct_vm.expect_revert("Funding snapshot is incomplete"):
+        contract.restore_review_history(manifest["reviewHistory"]["payload"])
+    direct_vm.value = 0
 
 
 def create_project(contract):

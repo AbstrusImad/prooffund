@@ -1,10 +1,10 @@
 # ProofFund
 
-**A pressure map for accountable capital on GenLayer StudioNet**
+**A pressure map for accountable capital on GenLayer Bradbury**
 
-[Enter the live protocol](https://abstrusimad.github.io/prooffund/) ·
-[Inspect the contract](https://explorer-studio.genlayer.com/address/0x2aB48F7021Bdda0435e5284D805235E8b16A8f18) ·
-[Trace the deployment](https://explorer-studio.genlayer.com/tx/0x5940ed6fca9b66c20f480935f4b1545343fcbfe4fadc6ff0ab2e938d88cd1c8e)
+[Enter the live protocol](https://abstrusimad.github.io/prooffund/) |
+[Inspect the contract](https://explorer-bradbury.genlayer.com/address/0x3d7E652c104d67c813C594D83101A2e6682dA520) |
+[Trace the deployment](https://explorer-bradbury.genlayer.com/tx/0x41a65eabb5aedbb0493db8c94da2c21f04dbe290cd7df4721b95390d89dcc0cf)
 
 ![ProofFund capital-flow workspace](app/proof-desktop.png)
 
@@ -27,17 +27,17 @@ The public deployment currently exposes:
 
 - **9** project reservoirs
 - **27** bounded funding tranches
-- **57 GEN** committed through real StudioNet transactions
+- **57 GEN** committed through real Bradbury transactions
 - **3** open contribution-weighted proposals
 - **3** open bonded disputes
 - **0** mocked protocol records
 
 | Network proof | Value |
 |---|---|
-| Chain | GenLayer StudioNet, chain ID `61999` |
-| Intelligent Contract | `0x2aB48F7021Bdda0435e5284D805235E8b16A8f18` |
-| Deployment transaction | `0x5940ed6fca9b66c20f480935f4b1545343fcbfe4fadc6ff0ab2e938d88cd1c8e` |
-| Explorer | [explorer-studio.genlayer.com](https://explorer-studio.genlayer.com) |
+| Chain | GenLayer Bradbury, chain ID `4221` |
+| Intelligent Contract | `0x3d7E652c104d67c813C594D83101A2e6682dA520` |
+| Deployment transaction | [`0x41a65e...dcc0cf`](https://explorer-bradbury.genlayer.com/tx/0x41a65eabb5aedbb0493db8c94da2c21f04dbe290cd7df4721b95390d89dcc0cf) |
+| Explorer | [explorer-bradbury.genlayer.com](https://explorer-bradbury.genlayer.com) |
 | Repository | [AbstrusImad/prooffund](https://github.com/AbstrusImad/prooffund) |
 | Application | [abstrusimad.github.io/prooffund](https://abstrusimad.github.io/prooffund/) |
 
@@ -65,7 +65,19 @@ The same route appears in the interface as a live capital field. Projects are
 vertical reservoirs, tranche and evidence state become connected channels, and
 every write becomes an animated current. The current remains active through
 wallet signature and validator consensus, then stops in a persistent accepted
-or failed result with the transaction hash and a StudioNet explorer link.
+or failed result with the transaction hash and a Bradbury explorer link.
+
+## Verifiable Network Migration
+
+The Bradbury release was reconstructed from an audited StudioNet snapshot,
+whose SHA-256 digest is
+`7eaf1828878b3fe0c9885dcdc5dc64711cf8d2a0bf8e59aed8a0553bdee274b5`.
+Projects, tranches, milestones, funding, governance, and votes were replayed
+through their native public contract methods. Historical validator verdicts
+and their three bonded disputes are restored once through an owner-gated,
+hash-locked method backed by exactly `0.3 GEN`. The deployment manifest records
+every Bradbury transaction, so the migration can be independently traced
+without trusting a frontend fixture.
 
 ## Contract State Channels
 
@@ -139,7 +151,7 @@ single-vote rules, quorum, and accounting invariants are enforced inside
 The Vue application is organized as four perimeter routes:
 
 - **FLOW** maps the live registry, capital totals, project fill levels, and
-  StudioNet status.
+  Bradbury status.
 - **SOURCE** creates a project through sequential input channels with immediate
   validation.
 - **VOTE** exposes open, passed, and rejected governance branches with weighted
@@ -163,9 +175,9 @@ visible above the route controls.
 ```text
 contracts/proof_fund.py          Intelligent Contract and protocol invariants
 tests/direct/                    Direct-mode lifecycle and adversarial tests
-tests/integration/               StudioNet integration checks
+tests/integration/               Bradbury integration checks
 deploy/                          GenLayer deployment entrypoint
-deployments/studionet.json       Canonical public deployment metadata
+deployments/bradbury.json        Canonical public deployment and transaction manifest
 scripts/                         Idempotent live-state preparation
 app/src/services/genlayer.js     SDK reads, writes, retries, receipt decoding
 app/src/stores/proofFund.js      Wallet persistence and transaction state machine
@@ -179,7 +191,7 @@ The architecture and trust boundaries are expanded in
 ## Bring Up a Local Current
 
 Requirements: Node.js 22+, Corepack, pnpm, Python 3.11+, GenVM lint tooling, and
-a StudioNet-compatible browser wallet.
+a Bradbury-compatible browser wallet.
 
 ```bash
 git clone https://github.com/AbstrusImad/prooffund.git
@@ -197,7 +209,7 @@ variables:
 
 ```dotenv
 VITE_CONTRACT_ADDRESS=<deployed intelligent contract address>
-VITE_EXPLORER_URL=<current StudioNet explorer origin>
+VITE_EXPLORER_URL=<current Bradbury explorer origin>
 ```
 
 No wallet key belongs in a Vite variable. Root and nested `.env` files are
@@ -216,7 +228,7 @@ corepack pnpm run build
 Current release evidence:
 
 - GenVM lint passed.
-- 8 direct contract tests passed.
+- 9 direct contract tests passed.
 - The production Vite build passed.
 - Desktop and mobile browser inspection passed with no runtime console errors.
 - Live reads returned 9 projects, 27 tranches, 57 funded GEN, 3 proposals, and
@@ -243,9 +255,9 @@ and publishes to GitHub Pages.
 - Funding and dispute bonds are contract-accounted.
 - Consensus output is normalized before state mutation.
 - Accepted writes refresh live state while preserving the terminal receipt.
-- Saturated StudioNet reads and writes use bounded backoff.
+- Saturated Bradbury reads and writes use bounded backoff.
 - Project images use local deterministic fallbacks.
-- The deployment is a StudioNet protocol release, not an audited mainnet
+- The deployment is a Bradbury testnet protocol release, not an audited mainnet
   financial product.
 
 ## Release Mark

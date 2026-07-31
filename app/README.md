@@ -1,7 +1,7 @@
 # ProofFund App
 
 Vue application connected directly to the deployed ProofFund contract on
-GenLayer StudioNet.
+GenLayer Bradbury.
 
 ```bash
 corepack pnpm install
@@ -13,5 +13,5 @@ Required configuration:
 
 ```dotenv
 VITE_CONTRACT_ADDRESS=0x...
-VITE_EXPLORER_URL=https://explorer-studio.genlayer.com
+VITE_EXPLORER_URL=https://explorer-bradbury.genlayer.com
 ```

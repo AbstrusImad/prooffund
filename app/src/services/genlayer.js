@@ -1,10 +1,10 @@
 import { createClient } from "genlayer-js";
-import { studionet } from "genlayer-js/chains";
+import { testnetBradbury } from "genlayer-js/chains";
 import { ExecutionResult, TransactionStatus } from "genlayer-js/types";
 
 export const contractAddress = import.meta.env.VITE_CONTRACT_ADDRESS || "";
 export const explorerUrl =
-  import.meta.env.VITE_EXPLORER_URL || "https://explorer-studio.genlayer.com";
+  import.meta.env.VITE_EXPLORER_URL || "https://explorer-bradbury.genlayer.com";
 
 const assertContract = () => {
   if (!/^0x[a-fA-F0-9]{40}$/.test(contractAddress)) {
@@ -12,17 +12,17 @@ const assertContract = () => {
   }
 };
 
-export const publicClient = createClient({ chain: studionet });
+export const publicClient = createClient({ chain: testnetBradbury });
 
-const isStudioBusy = (error) =>
+const isNetworkBusy = (error) =>
   String(error?.details || error?.message || error).includes("Server busy");
 
-const retryStudioBusy = async (operation, attempts = 8) => {
+const retryNetworkBusy = async (operation, attempts = 8) => {
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
       return await operation();
     } catch (error) {
-      if (!isStudioBusy(error) || attempt === attempts) throw error;
+      if (!isNetworkBusy(error) || attempt === attempts) throw error;
       await new Promise((resolveDelay) => setTimeout(resolveDelay, attempt * 1_000));
     }
   }
@@ -38,14 +38,14 @@ export async function connectWallet({ silent = false } = {}) {
   });
   const address = accounts?.[0];
   if (!address) return null;
-  const client = createClient({ chain: studionet, account: address });
-  if (!silent) await client.connect("studionet");
+  const client = createClient({ chain: testnetBradbury, account: address });
+  if (!silent) await client.connect("testnetBradbury");
   return { address, client };
 }
 
 export async function readContract(functionName, args = []) {
   assertContract();
-  return retryStudioBusy(() =>
+  return retryNetworkBusy(() =>
     publicClient.readContract({
       address: contractAddress,
       functionName,
@@ -164,8 +164,8 @@ export async function writeContract(
   assertContract();
   if (!client) throw new Error("Connect your wallet before continuing.");
 
-  await client.connect("studionet");
-  const hash = await retryStudioBusy(() =>
+  await client.connect("testnetBradbury");
+  const hash = await retryNetworkBusy(() =>
     client.writeContract({
       address: contractAddress,
       functionName,
@@ -190,7 +190,10 @@ export async function writeContract(
     studioExecution === "SUCCESS";
 
   if (!executionSucceeded) {
-    throw new Error(extractReceiptError(receipt));
+    const error = new Error(extractReceiptError(receipt));
+    error.hash = hash;
+    error.receipt = receipt;
+    throw error;
   }
   return { hash, receipt, returnValue: extractReturnValue(receipt) };
 }

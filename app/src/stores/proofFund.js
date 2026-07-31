@@ -37,7 +37,7 @@ async function refresh() {
       state.profile = await readContract("get_profile", [state.wallet]);
     }
   } catch (error) {
-    state.error = error.message || "Unable to read StudioNet.";
+    state.error = error.message || "Unable to read Bradbury.";
   } finally {
     state.loading = false;
   }
@@ -100,7 +100,7 @@ async function transact(
     ["AWAITING_SIGNATURE", "CONSENSUS"].includes(state.transaction.status)
   ) {
     throw new Error(
-      `${state.transaction.label} is already moving through StudioNet consensus.`,
+      `${state.transaction.label} is already moving through Bradbury consensus.`,
     );
   }
   state.error = "";
@@ -121,7 +121,7 @@ async function transact(
       (hash) => {
         state.transaction.hash = hash;
         state.transaction.status = "CONSENSUS";
-        state.transaction.message = "StudioNet validators are processing the transaction.";
+        state.transaction.message = "Bradbury validators are processing the transaction.";
       },
     );
     state.transaction.status = "ACCEPTED";
@@ -133,6 +133,7 @@ async function transact(
     await refresh();
     return result;
   } catch (error) {
+    if (!state.transaction.hash && error?.hash) state.transaction.hash = error.hash;
     state.transaction.status = "FAILED";
     state.transaction.message = "The transaction was not applied.";
     state.transaction.error = formatError(error);

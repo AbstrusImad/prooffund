@@ -16,7 +16,7 @@ deliverables cannot be verified by deterministic code alone.
 ## Core flow
 
 1. A creator registers a project and measurable milestones.
-2. Backers send real StudioNet GEN into contract escrow.
+2. Backers send real Bradbury GEN into contract escrow.
 3. Once fully funded, the creator submits a public evidence URL.
 4. Validators independently inspect the evidence and compare verdict and score.
 5. Approved milestone funds become claimable by the creator.

@@ -169,7 +169,7 @@ const addTranche = async () => {
       "add_funding_tranche",
       [data.project.id, trancheForm.title, goal, deadline],
       0n,
-      { successMessage: "Funding tranche opened on StudioNet." },
+      { successMessage: "Funding tranche opened on Bradbury." },
     );
     modal.value = "";
     await reload();
@@ -237,7 +237,7 @@ const voteProposal = async (proposal, support) => {
       "vote_proposal",
       [proposal.id, support],
       0n,
-      { successMessage: `${support ? "YES" : "NO"} vote recorded on StudioNet.` },
+      { successMessage: `${support ? "YES" : "NO"} vote recorded on Bradbury.` },
     );
     await reload();
   } catch (error) {
@@ -352,7 +352,7 @@ const evaluate = async (milestone) => {
       "evaluate_milestone",
       [data.project.id, milestone.id],
       0n,
-      { successMessage: "Consensus verdict recorded on StudioNet." },
+      { successMessage: "Consensus verdict recorded on Bradbury." },
     );
     await reload();
   } catch (error) {
@@ -372,7 +372,7 @@ const openDispute = async () => {
       "open_dispute",
       [data.project.id, selectedMilestone.value.id, disputeForm.reason, disputeForm.url],
       toWei(disputeForm.bond),
-      { successMessage: "Bonded dispute opened and recorded on StudioNet." },
+      { successMessage: "Bonded dispute opened and recorded on Bradbury." },
     );
     modal.value = "";
     await reload();
@@ -422,7 +422,7 @@ const proposalEnded = (proposal) =>
   <div v-else-if="loadError" class="page">
     <section class="empty-state">
       <RefreshCw :size="28" />
-      <h3>StudioNet is temporarily busy</h3>
+      <h3>Bradbury is temporarily busy</h3>
       <p>{{ loadError }}</p>
       <button class="primary-button" type="button" @click="reload">Retry project data</button>
     </section>

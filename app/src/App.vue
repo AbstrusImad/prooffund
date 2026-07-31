@@ -119,7 +119,7 @@ const refreshSafely = async () => {
       :class="{
         pending: transactionPending,
         accepted: state.transaction.status === 'ACCEPTED',
-        failed: state.transaction.status === 'FAILED',
+        failed: ['FAILED', 'EXECUTION_REJECTED'].includes(state.transaction.status),
       }"
       aria-live="polite"
     >

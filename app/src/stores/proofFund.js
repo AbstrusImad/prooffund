@@ -11,6 +11,7 @@ const state = reactive({
   client: null,
   projects: [],
   proposals: [],
+  proposalVotes: {},
   dashboard: null,
   profile: null,
   loading: false,
@@ -34,7 +35,19 @@ async function refresh() {
     state.projects = Array.isArray(projects) ? projects : [];
     state.proposals = Array.isArray(proposals) ? proposals : [];
     if (state.wallet) {
-      state.profile = await readContract("get_profile", [state.wallet]);
+      const [profile, votes] = await Promise.all([
+        readContract("get_profile", [state.wallet]),
+        Promise.all(
+          state.proposals.map(async (proposal) => [
+            proposal.id,
+            await readContract("get_vote", [proposal.id, state.wallet]),
+          ]),
+        ),
+      ]);
+      state.profile = profile;
+      state.proposalVotes = Object.fromEntries(votes);
+    } else {
+      state.proposalVotes = {};
     }
   } catch (error) {
     state.error = error.message || "Unable to read Bradbury.";
@@ -76,6 +89,7 @@ function watchWallet() {
       state.wallet = "";
       state.client = null;
       state.profile = null;
+      state.proposalVotes = {};
       localStorage.removeItem("prooffund.wallet.connected");
       return;
     }
@@ -134,8 +148,12 @@ async function transact(
     return result;
   } catch (error) {
     if (!state.transaction.hash && error?.hash) state.transaction.hash = error.hash;
-    state.transaction.status = "FAILED";
-    state.transaction.message = "The transaction was not applied.";
+    const executionRejected =
+      error?.receipt?.txExecutionResultName === "FINISHED_WITH_ERROR";
+    state.transaction.status = executionRejected ? "EXECUTION_REJECTED" : "FAILED";
+    state.transaction.message = executionRejected
+      ? "Consensus accepted the receipt, but contract execution was rejected."
+      : "The transaction was not applied.";
     state.transaction.error = formatError(error);
     throw error;
   }

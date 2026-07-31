@@ -31,6 +31,11 @@ const vote = async (proposal, support) => {
   workingId.value = proposal.id;
   try {
     if (!isConnected.value) await connect();
+    if (state.proposalVotes[proposal.id]) {
+      throw new Error(
+        `This wallet already voted ${state.proposalVotes[proposal.id]} on ${proposal.id}.`,
+      );
+    }
     await transact(
       support ? "Casting support vote" : "Casting opposition vote",
       "vote_proposal",
@@ -141,11 +146,23 @@ const formatDate = (timestamp) =>
         </footer>
         <div v-if="proposal.status === 'OPEN'" class="proposal-actions">
           <template v-if="!ended(proposal)">
-            <button class="vote-button yes" type="button" :disabled="workingId === proposal.id" @click="vote(proposal, true)">
-              <Check :size="15" /> Vote yes
+            <button
+              class="vote-button yes"
+              type="button"
+              :disabled="workingId === proposal.id || Boolean(state.proposalVotes[proposal.id])"
+              @click="vote(proposal, true)"
+            >
+              <Check :size="15" />
+              {{ state.proposalVotes[proposal.id] === "YES" ? "Voted yes" : "Vote yes" }}
             </button>
-            <button class="vote-button no" type="button" :disabled="workingId === proposal.id" @click="vote(proposal, false)">
-              <X :size="15" /> Vote no
+            <button
+              class="vote-button no"
+              type="button"
+              :disabled="workingId === proposal.id || Boolean(state.proposalVotes[proposal.id])"
+              @click="vote(proposal, false)"
+            >
+              <X :size="15" />
+              {{ state.proposalVotes[proposal.id] === "NO" ? "Voted no" : "Vote no" }}
             </button>
           </template>
           <button v-else class="primary-button compact" type="button" :disabled="workingId === proposal.id" @click="finalize(proposal)">

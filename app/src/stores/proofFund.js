@@ -160,12 +160,13 @@ async function transact(
 }
 
 async function loadProject(projectId) {
-  const [project, milestones, disputes, tranches, proposals] = await Promise.all([
+  const [project, milestones, disputes, tranches, proposals, incidents] = await Promise.all([
     readContract("get_project", [projectId]),
     readContract("get_milestones", [projectId]),
     readContract("get_disputes", [projectId]),
     readContract("get_tranches", [projectId]),
     readContract("get_proposals", [projectId]),
+    readContract("get_incidents", [projectId]),
   ]);
   const contribution = state.wallet
     ? await readContract("get_contribution", [projectId, state.wallet])
@@ -181,7 +182,7 @@ async function loadProject(projectId) {
       }),
     );
   }
-  return { project, milestones, disputes, tranches, proposals, contribution, votes };
+  return { project, milestones, disputes, tranches, proposals, incidents, contribution, votes };
 }
 
 function dismissTransaction() {

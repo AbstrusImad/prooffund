@@ -19,7 +19,23 @@ const client = createClient({ chain: testnetBradbury, account });
 const source = readFileSync(resolve(root, "contracts/proof_fund.py"), "utf8");
 const code = new TextEncoder().encode(source);
 const contractSha256 = createHash("sha256").update(code).digest("hex");
-const hash = await client.deployContract({ code, args: [], leaderOnly: true });
+
+let hash;
+for (let attempt = 1; attempt <= 30; attempt++) {
+  try {
+    hash = await client.deployContract({ code, args: [], leaderOnly: true });
+    break;
+  } catch (err) {
+    const msg = err?.details || err?.message || "";
+    if (msg.includes("backpressure") || msg.includes("PubdataLimit")) {
+      console.log(`  [attempt ${attempt}] network busy (${msg.split(":")[0].trim()}), retrying in 15s...`);
+      await new Promise((r) => setTimeout(r, 15_000));
+      continue;
+    }
+    throw err;
+  }
+}
+if (!hash) throw new Error("Deploy failed after 30 attempts (network backpressure)");
 console.log(`Bradbury deployment submitted: ${hash}`);
 const receipt = await client.waitForTransactionReceipt({
   hash,

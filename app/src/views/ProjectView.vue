@@ -15,6 +15,7 @@ import {
   Plus,
   RefreshCw,
   ShieldCheck,
+  Unlock,
   UserRound,
   Users,
   Check,
@@ -46,6 +47,7 @@ const funding = ref(false);
 const addingMilestone = ref(false);
 const submittingEvidence = ref(false);
 const evaluatingMilestone = ref("");
+const releasingMilestone = ref("");
 const openingDispute = ref(false);
 const addingTranche = ref(false);
 const creatingProposal = ref(false);
@@ -362,6 +364,55 @@ const evaluate = async (milestone) => {
   }
 };
 
+const isPastDisputeWindow = (milestone) => {
+  const end = Number(milestone.dispute_window_end || 0);
+  return end > 0 && Math.floor(Date.now() / 1000) >= end;
+};
+
+const canClaimRefund = computed(() => {
+  if (!data.project || !data.contribution || !state.wallet) return false;
+  if (data.project.status === "COMPLETED") return false;
+  const deadline = Number(data.project.deadline || 0);
+  return deadline > 0 && Math.floor(Date.now() / 1000) > deadline;
+});
+
+const claimRefund = async () => {
+  actionError.value = "";
+  try {
+    await ensureWallet();
+    await transact(
+      "Claiming backer refund",
+      "claim_refund",
+      [data.project.id],
+      0n,
+      { successMessage: "Refund added to your claimable balance." },
+    );
+    await reload();
+  } catch (error) {
+    actionError.value = formatError(error);
+  }
+};
+
+const releaseMilestone = async (milestone) => {
+  actionError.value = "";
+  releasingMilestone.value = milestone.id;
+  try {
+    await ensureWallet();
+    await transact(
+      "Releasing approved milestone funds",
+      "release_approved_milestone",
+      [data.project.id, milestone.id],
+      0n,
+      { successMessage: "Milestone funds released to creator claimable." },
+    );
+    await reload();
+  } catch (error) {
+    actionError.value = formatError(error);
+  } finally {
+    releasingMilestone.value = "";
+  }
+};
+
 const openDispute = async () => {
   actionError.value = "";
   openingDispute.value = true;
@@ -534,7 +585,7 @@ const proposalEnded = (proposal) =>
               <div class="milestone-content">
                 <header>
                   <div><small>Milestone {{ milestone.index }}</small><h3>{{ milestone.title }}</h3></div>
-                  <div class="milestone-value"><strong>{{ fromWei(milestone.amount) }} GEN</strong><span>{{ milestone.status }}</span></div>
+                  <div class="milestone-value"><strong>{{ fromWei(milestone.amount) }} GEN</strong><span>{{ milestone.status === 'APPROVED_PENDING' ? 'Pending dispute window' : milestone.status }}</span></div>
                 </header>
                 <p>{{ milestone.criteria }}</p>
                 <div class="milestone-facts">
@@ -551,7 +602,7 @@ const proposalEnded = (proposal) =>
                 </a>
                 <div class="milestone-actions">
                   <button
-                    v-if="isCreator && ['PENDING', 'SUBMITTED', 'NEEDS_WORK', 'REJECTED'].includes(milestone.status) && data.project.status === 'ACTIVE'"
+                    v-if="isCreator && ['PENDING', 'SUBMITTED', 'NEEDS_WORK', 'REJECTED', 'APPROVED_PENDING'].includes(milestone.status) && data.project.status === 'ACTIVE'"
                     class="secondary-button"
                     type="button"
                     @click="openModal('evidence', milestone)"
@@ -570,12 +621,23 @@ const proposalEnded = (proposal) =>
                     {{ evaluatingMilestone === milestone.id ? "Evaluating..." : "Run consensus" }}
                   </button>
                   <button
-                    v-if="!isCreator && ['APPROVED', 'NEEDS_WORK', 'REJECTED'].includes(milestone.status)"
+                    v-if="!isCreator && ['APPROVED', 'APPROVED_PENDING', 'NEEDS_WORK', 'REJECTED'].includes(milestone.status)"
                     class="danger-button"
                     type="button"
                     @click="openModal('dispute', milestone)"
                   >
                     <Gavel :size="15" /> Challenge verdict
+                  </button>
+                  <button
+                    v-if="isCreator && milestone.status === 'APPROVED_PENDING' && isPastDisputeWindow(milestone)"
+                    class="primary-button compact"
+                    type="button"
+                    :disabled="releasingMilestone === milestone.id"
+                    @click="releaseMilestone(milestone)"
+                  >
+                    <span v-if="releasingMilestone === milestone.id" class="button-spinner"></span>
+                    <Unlock v-else :size="15" />
+                    {{ releasingMilestone === milestone.id ? "Releasing..." : "Release funds" }}
                   </button>
                 </div>
               </div>
@@ -674,6 +736,14 @@ const proposalEnded = (proposal) =>
         <a v-if="data.project.status === 'FUNDING' && progress < 100" class="primary-button full" href="#tranches">
           <Layers3 :size="17" /> Choose funding tranche
         </a>
+        <button
+          v-if="canClaimRefund"
+          class="secondary-button full"
+          type="button"
+          @click="claimRefund"
+        >
+          <CircleDollarSign :size="17" /> Claim refund
+        </button>
         <div class="escrow-note"><ShieldCheck :size="17" /><span>Funds remain in contract escrow until a milestone is approved.</span></div>
       </aside>
     </div>

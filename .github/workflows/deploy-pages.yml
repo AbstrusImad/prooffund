@@ -21,7 +21,7 @@ jobs:
       run:
         working-directory: app
     env:
-      VITE_CONTRACT_ADDRESS: "0x3d7E652c104d67c813C594D83101A2e6682dA520"
+      VITE_CONTRACT_ADDRESS: "0x187DDAD449F75C6aeabFAb3a49CC274f6725A179"
       VITE_EXPLORER_URL: "https://explorer-bradbury.genlayer.com"
     steps:
       - name: Checkout

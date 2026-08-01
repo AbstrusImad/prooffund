@@ -12,6 +12,8 @@ ERROR_EXPECTED = "[EXPECTED]"
 ERROR_EXTERNAL = "[EXTERNAL]"
 ERROR_LLM = "[LLM_ERROR]"
 
+DISPUTE_WINDOW_SECONDS = 7 * 86_400  # 7 days
+
 
 @allow_storage
 @dataclass
@@ -59,6 +61,8 @@ class Milestone:
     evaluated_at: u64
     released: bool
     dispute_count: u32
+    approved_at: u64
+    dispute_window_end: u64
 
 
 @allow_storage
@@ -158,6 +162,11 @@ class ProofFund(gl.Contract):
     total_disputes: u32
     total_proposals: u32
     review_history_restored: bool
+    inspectors: TreeMap[str, bool]
+    inspector_ids: DynArray[str]
+    incidents: TreeMap[str, str]
+    incident_ids: DynArray[str]
+    backer_refunded: TreeMap[str, bool]
 
     def __init__(self):
         self.owner = gl.message.sender_address
@@ -202,6 +211,8 @@ class ProofFund(gl.Contract):
             milestone.evaluated_at = u64(record["evaluated_at"])
             milestone.released = record["released"]
             milestone.dispute_count = u32(record["dispute_count"])
+            milestone.approved_at = u64(record.get("approved_at", 0))
+            milestone.dispute_window_end = u64(record.get("dispute_window_end", 0))
             self.milestones[milestone.id] = milestone
 
         for record in data["disputes"]:
@@ -349,7 +360,8 @@ class ProofFund(gl.Contract):
         if tranche.funded_amount == tranche.goal:
             tranche.status = "FUNDED"
         if project.funded_amount == project.funding_goal:
-            project.status = "ACTIVE"
+            if project.milestone_budget >= project.funding_goal:
+                project.status = "ACTIVE"
         self.tranches[tranche.id] = tranche
         self.projects[project.id] = project
 
@@ -643,11 +655,18 @@ material factual or interpretive error demonstrated by the counter-evidence.
             evaluated_at=u64(0),
             released=False,
             dispute_count=u32(0),
+            approved_at=u64(0),
+            dispute_window_end=u64(0),
         )
         self.milestone_ids.append(milestone_id)
         project.milestone_count = index
         project.milestone_budget += amount
         project.status = "FUNDING"
+        if (
+            project.funded_amount == project.funding_goal
+            and project.milestone_budget >= project.funding_goal
+        ):
+            project.status = "ACTIVE"
         self.projects[project_id] = project
         return milestone_id
 
@@ -825,6 +844,96 @@ material factual or interpretive error demonstrated by the counter-evidence.
         self.proposals[proposal_id] = proposal
 
     @gl.public.write
+    def register_inspector(self, inspector: Address) -> None:
+        if gl.message.sender_address != self.owner:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Only owner can register inspectors")
+        addr_hex = Address(inspector).as_hex.lower()
+        if not self.inspectors.get(addr_hex, False):
+            self.inspectors[addr_hex] = True
+            self.inspector_ids.append(addr_hex)
+
+    @gl.public.write
+    def revoke_inspector(self, inspector: Address) -> None:
+        if gl.message.sender_address != self.owner:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Only owner can revoke inspectors")
+        addr_hex = Address(inspector).as_hex.lower()
+        self.inspectors[addr_hex] = False
+
+    @gl.public.view
+    def is_inspector(self, account: str) -> bool:
+        addr_hex = Address(account).as_hex.lower()
+        return self.inspectors.get(addr_hex, False)
+
+    @gl.public.view
+    def get_inspectors(self) -> list:
+        out = []
+        for i in range(len(self.inspector_ids)):
+            addr_hex = self.inspector_ids[i]
+            if self.inspectors.get(addr_hex, False):
+                out.append(addr_hex)
+        return out
+
+    @gl.public.write
+    def submit_inspection_finding(
+        self,
+        project_id: str,
+        milestone_id: str,
+        findings: str,
+        evidence_url: str,
+        attestation_hash: str,
+        required_response: str,
+    ) -> str:
+        sender = gl.message.sender_address
+        sender_hex = sender.as_hex.lower()
+        if not self.inspectors.get(sender_hex, False) and sender != self.owner:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Sender is not an authorized inspector")
+
+        project = self._require_project(project_id)
+        milestone = self._require_milestone(project_id, milestone_id)
+
+        self._validate_text(findings, "Inspection findings", 15, 1000)
+        self._validate_text(required_response, "Required response", 15, 1000)
+        if not evidence_url.startswith("https://"):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Evidence URL must use HTTPS")
+        if attestation_hash and (
+            len(attestation_hash) != 64
+            or any(c not in "0123456789abcdefABCDEF" for c in attestation_hash)
+        ):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Invalid attestation hash format")
+
+        incident_id = f"INC-{len(self.incident_ids) + 1:04d}"
+        incident_data = {
+            "id": incident_id,
+            "project_id": project_id,
+            "milestone_id": milestone_id,
+            "inspector": sender.as_hex,
+            "findings": findings.strip(),
+            "evidence_url": evidence_url.strip(),
+            "attestation_hash": attestation_hash.strip().lower(),
+            "required_response": required_response.strip(),
+            "validated_response": "",
+            "status": "OPEN",
+            "created_at": int(self._now()),
+            "evaluated_at": 0,
+        }
+        self.incidents[incident_id] = json.dumps(incident_data)
+        self.incident_ids.append(incident_id)
+
+        milestone.evidence_url = evidence_url.strip()
+        milestone.evidence_note = (
+            f"Inspector Finding: {findings.strip()} | "
+            f"Required Action: {required_response.strip()}"
+        )
+        milestone.submitted_at = self._now()
+        milestone.status = "SUBMITTED"
+        milestone.verdict = ""
+        milestone.analysis = ""
+        milestone.findings_json = "[]"
+        self.milestones[milestone_id] = milestone
+
+        return incident_id
+
+    @gl.public.write
     def submit_evidence(
         self,
         project_id: str,
@@ -834,11 +943,20 @@ material factual or interpretive error demonstrated by the counter-evidence.
     ) -> None:
         project = self._require_project(project_id)
         milestone = self._require_milestone(project_id, milestone_id)
-        if gl.message.sender_address != project.creator:
-            raise gl.vm.UserError(f"{ERROR_EXPECTED} Only the creator can submit evidence")
+        sender = gl.message.sender_address
+        sender_hex = sender.as_hex.lower()
+        is_authorized = (
+            sender == project.creator
+            or sender == self.owner
+            or self.inspectors.get(sender_hex, False)
+        )
+        if not is_authorized:
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} Only creator or authorized inspector can submit evidence"
+            )
         if project.status != "ACTIVE":
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Project must be fully funded")
-        if milestone.status not in ("PENDING", "SUBMITTED", "NEEDS_WORK", "REJECTED"):
+        if milestone.status not in ("PENDING", "SUBMITTED", "NEEDS_WORK", "REJECTED", "APPROVED_PENDING"):
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Milestone cannot accept evidence")
         if not evidence_url.startswith("https://"):
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Evidence URL must use HTTPS")
@@ -875,22 +993,86 @@ material factual or interpretive error demonstrated by the counter-evidence.
         milestone.findings_json = json.dumps(result["findings"])
         milestone.evaluated_at = self._now()
 
-        if verdict == "APPROVED" and not milestone.released:
+        # Update linked incident state if present
+        for i in range(len(self.incident_ids)):
+            inc_id = self.incident_ids[i]
+            inc_str = self.incidents.get(inc_id, "")
+            if inc_str:
+                inc = json.loads(inc_str)
+                if inc.get("milestone_id") == milestone_id and inc.get("status") in (
+                    "OPEN",
+                    "EVALUATING",
+                ):
+                    inc["status"] = "RESOLVED" if verdict == "APPROVED" else "REJECTED"
+                    inc["validated_response"] = str(result["summary"])
+                    inc["evaluated_at"] = int(self._now())
+                    self.incidents[inc_id] = json.dumps(inc)
+
+        if verdict == "APPROVED":
+            # Hold funds through dispute window — do NOT release immediately
             if project.released_amount + milestone.amount > project.funded_amount:
                 raise gl.vm.UserError(f"{ERROR_EXPECTED} Insufficient funded escrow")
-            milestone.released = True
-            project.released_amount += milestone.amount
-            self.total_released += milestone.amount
-            self.claimable[project.creator] = (
-                self.claimable.get(project.creator, u256(0)) + milestone.amount
-            )
-            profile = self._profile(project.creator)
-            profile.milestones_approved += u32(1)
-            profile.total_earned += milestone.amount
-            self.reputation[project.creator] = profile
-            if project.released_amount == project.milestone_budget:
-                project.status = "COMPLETED"
+            self._enter_dispute_window(milestone)
 
+        self.milestones[milestone_id] = milestone
+        self.projects[project_id] = project
+
+    def _credit_milestone_release(
+        self, project: Project, milestone: Milestone
+    ) -> None:
+        milestone.released = True
+        milestone.status = "APPROVED"
+        project.released_amount += milestone.amount
+        self.total_released += milestone.amount
+        self.claimable[project.creator] = (
+            self.claimable.get(project.creator, u256(0)) + milestone.amount
+        )
+        profile = self._profile(project.creator)
+        profile.milestones_approved += u32(1)
+        profile.total_earned += milestone.amount
+        self.reputation[project.creator] = profile
+        if project.released_amount == project.milestone_budget:
+            project.status = "COMPLETED"
+
+    def _enter_dispute_window(self, milestone: Milestone) -> None:
+        milestone.status = "APPROVED_PENDING"
+        milestone.approved_at = self._now()
+        milestone.dispute_window_end = self._now() + u64(DISPUTE_WINDOW_SECONDS)
+
+    def _reverse_milestone_release(
+        self, project: Project, milestone: Milestone
+    ) -> None:
+        milestone.released = False
+        project.released_amount -= milestone.amount
+        self.total_released -= milestone.amount
+        creator_claim = self.claimable.get(project.creator, u256(0))
+        if creator_claim >= milestone.amount:
+            self.claimable[project.creator] = creator_claim - milestone.amount
+            creator_profile = self._profile(project.creator)
+            if creator_profile.milestones_approved > u32(0):
+                creator_profile.milestones_approved -= u32(1)
+            if creator_profile.total_earned >= milestone.amount:
+                creator_profile.total_earned -= milestone.amount
+            self.reputation[project.creator] = creator_profile
+        project.status = "ACTIVE"
+
+    @gl.public.write
+    def release_approved_milestone(
+        self, project_id: str, milestone_id: str
+    ) -> None:
+        project = self._require_project(project_id)
+        milestone = self._require_milestone(project_id, milestone_id)
+        if milestone.status != "APPROVED_PENDING":
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} Milestone is not awaiting dispute window"
+            )
+        if self._now() < milestone.dispute_window_end:
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} Dispute window has not closed"
+            )
+        if milestone.released:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Milestone already released")
+        self._credit_milestone_release(project, milestone)
         self.milestones[milestone_id] = milestone
         self.projects[project_id] = project
 
@@ -904,7 +1086,12 @@ material factual or interpretive error demonstrated by the counter-evidence.
     ) -> str:
         project = self._require_project(project_id)
         milestone = self._require_milestone(project_id, milestone_id)
-        if milestone.status not in ("APPROVED", "NEEDS_WORK", "REJECTED"):
+        if milestone.status not in (
+            "APPROVED",
+            "APPROVED_PENDING",
+            "NEEDS_WORK",
+            "REJECTED",
+        ):
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Milestone has no disputable verdict")
         if gl.message.sender_address == project.creator:
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Creator cannot challenge own milestone")
@@ -963,10 +1150,16 @@ material factual or interpretive error demonstrated by the counter-evidence.
         dispute.resolution = resolution
         dispute.analysis = str(result["summary"])
         dispute.resolved_at = self._now()
+
+        was_released = milestone.released
+        was_approved_pending = milestone.status == "APPROVED_PENDING"
+
         milestone.status = final_verdict
         milestone.verdict = final_verdict
         milestone.analysis = str(result["summary"])
         milestone.evaluated_at = self._now()
+        milestone.approved_at = u64(0)
+        milestone.dispute_window_end = u64(0)
 
         challenger_profile = self._profile(dispute.challenger)
         if resolution == "OVERTURN":
@@ -974,25 +1167,31 @@ material factual or interpretive error demonstrated by the counter-evidence.
             self.claimable[dispute.challenger] = (
                 self.claimable.get(dispute.challenger, u256(0)) + dispute.bond
             )
-            if milestone.released:
-                milestone.released = False
-                project.released_amount -= milestone.amount
-                self.total_released -= milestone.amount
-                creator_claim = self.claimable.get(project.creator, u256(0))
-                if creator_claim >= milestone.amount:
-                    self.claimable[project.creator] = creator_claim - milestone.amount
-                    creator_profile = self._profile(project.creator)
-                    if creator_profile.milestones_approved > u32(0):
-                        creator_profile.milestones_approved -= u32(1)
-                    if creator_profile.total_earned >= milestone.amount:
-                        creator_profile.total_earned -= milestone.amount
-                    self.reputation[project.creator] = creator_profile
-                project.status = "ACTIVE"
+            if was_released:
+                self._reverse_milestone_release(project, milestone)
+            elif was_approved_pending:
+                if final_verdict == "APPROVED":
+                    self._enter_dispute_window(milestone)
+                if project.status == "COMPLETED":
+                    project.status = "ACTIVE"
+            if (
+                final_verdict == "APPROVED"
+                and not was_released
+                and not was_approved_pending
+            ):
+                self._enter_dispute_window(milestone)
         else:
             challenger_profile.disputes_lost += u32(1)
             self.claimable[project.creator] = (
                 self.claimable.get(project.creator, u256(0)) + dispute.bond
             )
+            if final_verdict == "APPROVED":
+                if was_released:
+                    milestone.status = "APPROVED"
+                elif was_approved_pending:
+                    self._credit_milestone_release(project, milestone)
+                else:
+                    self._enter_dispute_window(milestone)
 
         self.reputation[dispute.challenger] = challenger_profile
         self.disputes[dispute_id] = dispute
@@ -1007,6 +1206,36 @@ material factual or interpretive error demonstrated by the counter-evidence.
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Nothing to claim")
         self.claimable[sender] = u256(0)
         _Recipient(sender).emit_transfer(value=amount)
+
+    @gl.public.write
+    def claim_refund(self, project_id: str) -> None:
+        project = self._require_project(project_id)
+        if self._now() <= project.deadline:
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} Refund activates after project deadline"
+            )
+        if project.status == "COMPLETED":
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Completed projects are not refundable")
+
+        sender = gl.message.sender_address
+        refund_key = f"{project_id}:{sender.as_hex}"
+        if self.backer_refunded.get(refund_key, False):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Refund already claimed")
+
+        contribution = self.contributions.get(refund_key, u256(0))
+        if contribution == u256(0):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} No contribution to refund")
+
+        available = project.funded_amount - project.released_amount
+        if available == u256(0):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} No funds available for refund")
+
+        refund_amount = contribution * available // project.funded_amount
+        if refund_amount == u256(0):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Refund amount is zero")
+
+        self.backer_refunded[refund_key] = True
+        self.claimable[sender] = self.claimable.get(sender, u256(0)) + refund_amount
 
     @gl.public.view
     def get_dashboard(self) -> dict:
@@ -1120,4 +1349,23 @@ material factual or interpretive error demonstrated by the counter-evidence.
             "proposals_created": profile.proposals_created,
             "votes_cast": profile.votes_cast,
             "claimable": self.claimable.get(address, u256(0)),
+            "is_inspector": self.inspectors.get(address.as_hex.lower(), False),
         }
+
+    @gl.public.view
+    def get_incidents(self, project_id: str) -> list:
+        out = []
+        for i in range(len(self.incident_ids)):
+            inc_str = self.incidents.get(self.incident_ids[i], "")
+            if inc_str:
+                inc = json.loads(inc_str)
+                if inc.get("project_id") == project_id or not project_id:
+                    out.append(inc)
+        return out
+
+    @gl.public.view
+    def get_incident(self, incident_id: str) -> dict:
+        inc_str = self.incidents.get(incident_id, "")
+        if not inc_str:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Incident not found")
+        return json.loads(inc_str)

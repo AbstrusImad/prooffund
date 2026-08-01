@@ -501,11 +501,28 @@ textarea:focus-visible {
   backdrop-filter: blur(12px);
 }
 
-.network-valves a i {
+.network-valves a i,
+.network-valves .network-badge i {
   width: 7px;
   height: 7px;
   border-radius: 50%;
   background: var(--acid);
+}
+
+.network-valves .network-badge {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 0 13px;
+  color: var(--paper);
+  background: rgba(8, 10, 9, 0.9);
+  font: 500 9px/1 var(--mono);
+  backdrop-filter: blur(12px);
+  cursor: default;
 }
 
 .network-valves button:nth-child(2) {

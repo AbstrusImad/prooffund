@@ -87,16 +87,10 @@ const refreshSafely = async () => {
     </nav>
 
     <div class="network-valves">
-      <a
-        :href="explorerUrl"
-        target="_blank"
-        rel="noreferrer"
-        title="Open Bradbury explorer"
-      >
+      <div class="network-badge" title="Connected to StudioNet">
         <i />
-        <span>BRADBURY</span>
-        <ExternalLink :size="14" />
-      </a>
+        <span>STUDIONET</span>
+      </div>
       <button type="button" :class="{ spinning: refreshing }" title="Refresh live data" @click="refreshSafely">
         <RefreshCw :size="16" />
       </button>

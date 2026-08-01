@@ -4,7 +4,7 @@ import { ExecutionResult, TransactionStatus } from "genlayer-js/types";
 
 export const contractAddress = import.meta.env.VITE_CONTRACT_ADDRESS || "";
 export const explorerUrl =
-  import.meta.env.VITE_EXPLORER_URL || "https://explorer-bradbury.genlayer.com";
+  import.meta.env.VITE_EXPLORER_URL || "";
 
 const assertContract = () => {
   if (!/^0x[a-fA-F0-9]{40}$/.test(contractAddress)) {
@@ -164,7 +164,7 @@ export async function writeContract(
   assertContract();
   if (!client) throw new Error("Connect your wallet before continuing.");
 
-  await client.connect("testnetBradbury");
+  await client.connect("studionet");
   const hash = await retryNetworkBusy(() =>
     client.writeContract({
       address: contractAddress,

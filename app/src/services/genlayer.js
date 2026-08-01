@@ -1,5 +1,5 @@
 import { createClient } from "genlayer-js";
-import { testnetBradbury } from "genlayer-js/chains";
+import { studionet } from "genlayer-js/chains";
 import { ExecutionResult, TransactionStatus } from "genlayer-js/types";
 
 export const contractAddress = import.meta.env.VITE_CONTRACT_ADDRESS || "";
@@ -12,7 +12,7 @@ const assertContract = () => {
   }
 };
 
-export const publicClient = createClient({ chain: testnetBradbury });
+export const publicClient = createClient({ chain: studionet });
 
 const isNetworkBusy = (error) =>
   String(error?.details || error?.message || error).includes("Server busy");
@@ -38,8 +38,8 @@ export async function connectWallet({ silent = false } = {}) {
   });
   const address = accounts?.[0];
   if (!address) return null;
-  const client = createClient({ chain: testnetBradbury, account: address });
-  if (!silent) await client.connect("testnetBradbury");
+  const client = createClient({ chain: studionet, account: address });
+  if (!silent) await client.connect("studionet");
   return { address, client };
 }
 

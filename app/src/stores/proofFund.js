@@ -31,9 +31,20 @@ async function refresh() {
       readContract("get_projects"),
       readContract("get_governance"),
     ]);
-    state.dashboard = dashboard;
-    state.projects = Array.isArray(projects) ? projects : [];
-    state.proposals = Array.isArray(proposals) ? proposals : [];
+
+    // Only update if data actually changed to prevent flickering
+    if (JSON.stringify(state.dashboard) !== JSON.stringify(dashboard)) {
+      state.dashboard = dashboard;
+    }
+    const projectsArray = Array.isArray(projects) ? projects : [];
+    if (JSON.stringify(state.projects) !== JSON.stringify(projectsArray)) {
+      state.projects = projectsArray;
+    }
+    const proposalsArray = Array.isArray(proposals) ? proposals : [];
+    if (JSON.stringify(state.proposals) !== JSON.stringify(proposalsArray)) {
+      state.proposals = proposalsArray;
+    }
+
     if (state.wallet) {
       const [profile, votes] = await Promise.all([
         readContract("get_profile", [state.wallet]),
@@ -44,8 +55,13 @@ async function refresh() {
           ]),
         ),
       ]);
-      state.profile = profile;
-      state.proposalVotes = Object.fromEntries(votes);
+      if (JSON.stringify(state.profile) !== JSON.stringify(profile)) {
+        state.profile = profile;
+      }
+      const votesObj = Object.fromEntries(votes);
+      if (JSON.stringify(state.proposalVotes) !== JSON.stringify(votesObj)) {
+        state.proposalVotes = votesObj;
+      }
     } else {
       state.proposalVotes = {};
     }

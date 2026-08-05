@@ -2,6 +2,221 @@
   "network": "studionet",
   "chainId": 61999,
   "contract": "ProofFund",
-  "address": "0x2aB48F7021Bdda0435e5284D805235E8b16A8f18",
-  "deploymentTransaction": "0x5940ed6fca9b66c20f480935f4b1545343fcbfe4fadc6ff0ab2e938d88cd1c8e"
+  "contractAddress": "0xC23Fa278dAeDeC6cB8b44239d8260d6906693Fa7",
+  "transactionHash": "0xe6ffb02e2da06b450d520d76510fd7dddc7cc32192264c7bd29d235babae51c6",
+  "deployer": "0x95803126315A05E642D8E46CE1d77eA2199a2A6E",
+  "publisher": "AbstrusImad",
+  "explorer": "https://explorer-studio.genlayer.com",
+  "status": "ACCEPTED",
+  "executionResult": "FINISHED_WITH_RETURN",
+  "deployedAt": "2026-08-05T15:12:36.031Z",
+  "contractSha256": "247f72a9f9fa920c6c8c7327c087e1490a7da09bcbf8b78a5259991cd512be10",
+  "fundingLimitWei": "9000000000000000000",
+  "seed": {
+    "transactions": {
+      "project-PF-0001": {
+        "hash": "0x7dc073d2720713fcb5f7ce1a80d6433ef84111052d59bd6da81bcde53065743d",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:12:44.895Z",
+        "acceptedAt": "2026-08-05T15:12:54.327Z"
+      },
+      "tranche-PF-0001-T2": {
+        "hash": "0x429218548a84dc1eab1c8f6f41100d8883d0fae2abf885fafad37fe5b66caf6d",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:12:55.019Z",
+        "acceptedAt": "2026-08-05T15:13:04.467Z"
+      },
+      "milestone-PF-0001-M1": {
+        "hash": "0x08a491a71efd3dc827248911c09cd07b4fd76f9ee4cfe496ea18215004a1750e",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:13:05.228Z",
+        "acceptedAt": "2026-08-05T15:13:24.037Z"
+      },
+      "project-PF-0002": {
+        "hash": "0x049ea80386a48e2fc2eb42c73747386c56da4edf58b79f41affe72d9adf534df",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:13:24.708Z",
+        "acceptedAt": "2026-08-05T15:14:14.585Z"
+      },
+      "milestone-PF-0002-M1": {
+        "hash": "0x6603235b59428dc69e76d0e2d2174d52c48afa147a4f80d47c2adce796aaf07e",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:14:15.242Z",
+        "acceptedAt": "2026-08-05T15:14:21.555Z"
+      },
+      "project-PF-0003": {
+        "hash": "0x5c3ab1224e70f2daa51835682eea6172789e5e1f2f53aed0c529b97549ac9e09",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:14:22.223Z",
+        "acceptedAt": "2026-08-05T15:14:28.541Z"
+      },
+      "milestone-PF-0003-M1": {
+        "hash": "0xeb4e321c1efc0e4aa461f5ff5eead6c43dec6d6dd9d4c0bf242548a9da988f5e",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:14:29.150Z",
+        "acceptedAt": "2026-08-05T15:14:41.827Z"
+      },
+      "project-PF-0004": {
+        "hash": "0x2051d7e41088d63d492f4fee863d03a6fdf8dd45ceff8ccbf28af67755c9395b",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:14:42.511Z",
+        "acceptedAt": "2026-08-05T15:14:48.828Z"
+      },
+      "milestone-PF-0004-M1": {
+        "hash": "0xbe52009721159fef62c679b3461fbe3d6ac8d7f024ccf1868eb8888ee3c3cf38",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:14:49.483Z",
+        "acceptedAt": "2026-08-05T15:14:55.810Z"
+      },
+      "project-PF-0005": {
+        "hash": "0x17a37596a1ce13929a89d00df153d2518fae63b73e18e7978677be3e7c984669",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:14:56.480Z",
+        "acceptedAt": "2026-08-05T15:15:09.022Z"
+      },
+      "milestone-PF-0005-M1": {
+        "hash": "0x884d6c5b9d604a223893891f680d21153125775a88f258603e375655ff0aff04",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:15:13.213Z",
+        "acceptedAt": "2026-08-05T15:15:19.532Z"
+      },
+      "project-PF-0006": {
+        "hash": "0x30ae8a5c3779a57c342e2b4ebcee7f1a76c1a0bc01e0a2c2f837f775a8fdf814",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:15:20.173Z",
+        "acceptedAt": "2026-08-05T15:15:29.615Z"
+      },
+      "milestone-PF-0006-M1": {
+        "hash": "0x36a859ef1c46555f64a83e418fe6eaa4d4a3ae32959dd9d6bcfd738a885fb431",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:15:30.396Z",
+        "acceptedAt": "2026-08-05T15:15:39.836Z"
+      },
+      "project-PF-0007": {
+        "hash": "0x2f90bb4b0d5416a8bdd24252665880b5e3e23235e3b25b36fa9d2eb27b37b238",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:15:40.648Z",
+        "acceptedAt": "2026-08-05T15:15:46.991Z"
+      },
+      "milestone-PF-0007-M1": {
+        "hash": "0x2538f4c5d210c4e6bb75f68c3b18025426fa53165eb167b9253185b49afe2e04",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:15:47.775Z",
+        "acceptedAt": "2026-08-05T15:15:54.116Z"
+      },
+      "project-PF-0008": {
+        "hash": "0xd160346b8ffee56a2f796772c9cfb1f548ca44178a86df7839506d205f0286e0",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:15:54.849Z",
+        "acceptedAt": "2026-08-05T15:16:01.203Z"
+      },
+      "milestone-PF-0008-M1": {
+        "hash": "0x09f331076de5827b2c63d92a2584be3998eef9973735b55ba509be79e0d0062b",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:16:01.933Z",
+        "acceptedAt": "2026-08-05T15:16:11.428Z"
+      },
+      "project-PF-0009": {
+        "hash": "0x94d30c27cfa5f1a058b19251516fd5f964e24cd461d368640ccfbff81ad9a0b3",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:16:12.109Z",
+        "acceptedAt": "2026-08-05T15:16:30.872Z"
+      },
+      "milestone-PF-0009-M1": {
+        "hash": "0xbe6f2b5496ca7563d0958b69d04f60ff317536d00b465bb181d07190edca45f4",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:16:31.521Z",
+        "acceptedAt": "2026-08-05T15:16:41.028Z"
+      },
+      "fund-PF-0001-T1": {
+        "hash": "0x2a723358e56348b77192b23ac60a24c343c1301e4376b4e2adde2b4fdbcbc714",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:16:41.718Z",
+        "acceptedAt": "2026-08-05T15:16:57.422Z"
+      },
+      "fund-PF-0001-T2": {
+        "hash": "0x56bb08395edf155d985a5ff7dc32bb49a3fd8b752568f9428e6b0424567c914a",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:16:58.104Z",
+        "acceptedAt": "2026-08-05T15:17:04.436Z"
+      },
+      "fund-PF-0002-T1": {
+        "hash": "0x040749bf89b6ec3fa453cf02bca2991e2713f8d89caf3ff8d49e68a51778dc68",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:17:05.472Z",
+        "acceptedAt": "2026-08-05T15:17:11.834Z"
+      },
+      "fund-PF-0003-T1": {
+        "hash": "0xcdd3b130061eb37cda793ec8dba02c27be7f0d438bcf681051041336f33c65b9",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:17:12.457Z",
+        "acceptedAt": "2026-08-05T15:17:18.773Z"
+      },
+      "fund-PF-0004-T1": {
+        "hash": "0x5772e091564b4be8e7636823af0442bbd5744625c27bcb43878e7d442f8f70ea",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:17:19.482Z",
+        "acceptedAt": "2026-08-05T15:17:25.805Z"
+      },
+      "fund-PF-0005-T1": {
+        "hash": "0x969f021575003ece7a851ac08031d24a204b572b26285c2b22ebcfe35d9b598c",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:17:26.492Z",
+        "acceptedAt": "2026-08-05T15:17:33.002Z"
+      },
+      "fund-PF-0006-T1": {
+        "hash": "0x37f5afefcf04fb491a55a8934958d84aae3d7a6d8ef0c7862b145822aca615da",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:17:33.608Z",
+        "acceptedAt": "2026-08-05T15:17:39.953Z"
+      },
+      "fund-PF-0007-T1": {
+        "hash": "0x950952b37417af6d7b87efaefc00ee7de09c7f1e4d86dbc5a6748b4cacca7c4c",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:17:40.591Z",
+        "acceptedAt": "2026-08-05T15:17:50.067Z"
+      },
+      "proposal-PF-0001-G1": {
+        "hash": "0x90a55cacf84cdcef6f6b4383c5e065bb00b4e1c9a083e0db48065fb58abcef7a",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:18:21.557Z",
+        "acceptedAt": "2026-08-05T15:18:27.861Z"
+      },
+      "vote-PF-0001-G1": {
+        "hash": "0xfaaf19414bfb192ef16f2a23f677659d3e2d4f9aef4b7e3903d63b9ff37facfa",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:18:28.416Z",
+        "acceptedAt": "2026-08-05T15:18:34.819Z"
+      },
+      "proposal-PF-0002-G1": {
+        "hash": "0x529f549fb930ce5e898ddc29c4204bb8bd8c0e29372d8f6e1e167f43a2545020",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:18:35.868Z",
+        "acceptedAt": "2026-08-05T15:18:48.391Z"
+      },
+      "vote-PF-0002-G1": {
+        "hash": "0x791ee62a6e0bfd079444ad11e96036099c811a279972c87cee935f5db253fc61",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:18:48.964Z",
+        "acceptedAt": "2026-08-05T15:18:55.274Z"
+      },
+      "proposal-PF-0003-G1": {
+        "hash": "0x99737e81e2590cfc94b401ab8ab7809fc951e3fcb51d7253c2f47512262d2955",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:18:55.873Z",
+        "acceptedAt": "2026-08-05T15:19:08.408Z"
+      },
+      "vote-PF-0003-G1": {
+        "hash": "0x76fc3980f989d35503a91f8b2056b81bdcfa2e04ff80e4c3da2978c39b77060b",
+        "status": "ACCEPTED",
+        "submittedAt": "2026-08-05T15:19:09.014Z",
+        "acceptedAt": "2026-08-05T15:19:15.320Z"
+      }
+    },
+    "status": "ACCEPTED",
+    "totalFundedWei": "9000000000000000000",
+    "transactionCount": 33,
+    "totalFundedGen": "9",
+    "completedAt": "2026-08-05T15:19:15.320Z"
+  }
 }

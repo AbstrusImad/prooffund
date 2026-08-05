@@ -5,13 +5,12 @@ import ProjectCard from "../components/ProjectCard.vue";
 import { useProofFund } from "../stores/proofFund";
 import { fromWei } from "../services/genlayer";
 
-const { state, isConnected, connect, transact } = useProofFund();
+const { state, isConnected, connect } = useProofFund();
 const ownProjects = computed(() =>
   state.projects.filter(
     (project) => project.creator?.toLowerCase() === state.wallet?.toLowerCase(),
   ),
 );
-const claim = () => transact("Claiming released funds", "claim");
 </script>
 
 <template>
@@ -19,20 +18,13 @@ const claim = () => transact("Claiming released funds", "claim");
     <section v-if="!isConnected" class="wallet-gate">
       <div><Wallet :size="30" /></div>
       <h1>Connect your funding identity</h1>
-      <p>Your portfolio and reputation are read directly from your Bradbury address.</p>
+      <p>Your portfolio and reputation are read directly from your StudioNet address.</p>
       <button class="primary-button" type="button" @click="connect">Connect wallet</button>
     </section>
     <template v-else>
       <header class="profile-heading">
         <div><span class="eyebrow">On-chain portfolio</span><h1>{{ state.wallet }}</h1></div>
-        <button
-          class="primary-button"
-          type="button"
-          :disabled="!BigInt(state.profile?.claimable || 0)"
-          @click="claim"
-        >
-          Claim {{ fromWei(state.profile?.claimable || 0) }} GEN
-        </button>
+        <div class="budget-complete">DIRECT SETTLEMENT / {{ fromWei(state.profile?.total_earned || 0) }} GEN EARNED</div>
       </header>
       <section class="profile-stats">
         <article><CircleDollarSign :size="19" /><span>Capital backed</span><strong>{{ fromWei(state.profile?.total_funded || 0) }} GEN</strong></article>
@@ -46,7 +38,7 @@ const claim = () => transact("Claiming released funds", "claim");
         <div v-if="ownProjects.length" class="project-grid">
           <ProjectCard v-for="project in ownProjects" :key="project.id" :project="project" />
         </div>
-        <div v-else class="empty-state"><h3>No launched projects yet</h3><p>Your projects will appear here after Bradbury accepts them.</p><RouterLink class="secondary-button" to="/projects/new">Launch project</RouterLink></div>
+        <div v-else class="empty-state"><h3>No launched projects yet</h3><p>Your projects will appear here after StudioNet accepts them.</p><RouterLink class="secondary-button" to="/projects/new">Launch project</RouterLink></div>
       </section>
     </template>
   </div>

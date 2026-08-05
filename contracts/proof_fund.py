@@ -1,6 +1,5 @@
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 
-import hashlib
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -11,6 +10,7 @@ from genlayer import *
 ERROR_EXPECTED = "[EXPECTED]"
 ERROR_EXTERNAL = "[EXTERNAL]"
 ERROR_LLM = "[LLM_ERROR]"
+DISPUTE_WINDOW_SECONDS = 7 * 86_400
 
 
 @allow_storage
@@ -36,6 +36,10 @@ class Project:
     tranche_budget: u256
     tranche_count: u32
     proposal_count: u32
+    refund_pool: u256
+    refunded_amount: u256
+    refund_claim_count: u32
+    refund_opened_at: u64
 
 
 @allow_storage
@@ -59,6 +63,9 @@ class Milestone:
     evaluated_at: u64
     released: bool
     dispute_count: u32
+    approved_at: u64
+    appeal_deadline: u64
+    active_dispute_id: str
 
 
 @allow_storage
@@ -76,6 +83,7 @@ class Dispute:
     analysis: str
     created_at: u64
     resolved_at: u64
+    original_verdict: str
 
 
 @allow_storage
@@ -151,79 +159,21 @@ class ProofFund(gl.Contract):
     contributions: TreeMap[str, u256]
     backed_projects: TreeMap[str, bool]
     backed_tranches: TreeMap[str, bool]
-    claimable: TreeMap[Address, u256]
+    refund_claimed: TreeMap[str, bool]
     reputation: TreeMap[Address, Reputation]
     total_funded: u256
     total_released: u256
+    total_refunded: u256
     total_disputes: u32
     total_proposals: u32
-    review_history_restored: bool
 
     def __init__(self):
         self.owner = gl.message.sender_address
         self.total_funded = u256(0)
         self.total_released = u256(0)
+        self.total_refunded = u256(0)
         self.total_disputes = u32(0)
         self.total_proposals = u32(0)
-        self.review_history_restored = False
-
-    @gl.public.write.payable
-    def restore_review_history(self, payload: str) -> None:
-        if gl.message.sender_address != self.owner:
-            raise gl.vm.UserError(f"{ERROR_EXPECTED} Owner authorization required")
-        if self.review_history_restored:
-            raise gl.vm.UserError(f"{ERROR_EXPECTED} Review history already restored")
-        if len(self.project_ids) != 9 or self.total_funded != u256(57000000000000000000):
-            raise gl.vm.UserError(f"{ERROR_EXPECTED} Funding snapshot is incomplete")
-        if gl.message.value != u256(300000000000000000):
-            raise gl.vm.UserError(f"{ERROR_EXPECTED} Dispute backing must be 0.3 GEN")
-        if (
-            hashlib.sha256(payload.encode()).hexdigest()
-            != "323e5cd84049d17217f336c57a1ebe733c3e110b6235558fccd0fd671edea297"
-        ):
-            raise gl.vm.UserError(f"{ERROR_EXPECTED} Review snapshot hash mismatch")
-        try:
-            data = json.loads(payload)
-        except Exception:
-            raise gl.vm.UserError(f"{ERROR_EXPECTED} Review snapshot is invalid")
-        if len(data["milestones"]) != 3 or len(data["disputes"]) != 3:
-            raise gl.vm.UserError(f"{ERROR_EXPECTED} Review snapshot count mismatch")
-
-        for record in data["milestones"]:
-            milestone = self._require_milestone(record["project_id"], record["id"])
-            milestone.status = record["status"]
-            milestone.evidence_url = record["evidence_url"]
-            milestone.evidence_note = record["evidence_note"]
-            milestone.submitted_at = u64(record["submitted_at"])
-            milestone.verdict = record["verdict"]
-            milestone.score = u32(record["score"])
-            milestone.analysis = record["analysis"]
-            milestone.findings_json = record["findings_json"]
-            milestone.evaluated_at = u64(record["evaluated_at"])
-            milestone.released = record["released"]
-            milestone.dispute_count = u32(record["dispute_count"])
-            self.milestones[milestone.id] = milestone
-
-        for record in data["disputes"]:
-            item = Dispute(
-                id=record["id"],
-                project_id=record["project_id"],
-                milestone_id=record["milestone_id"],
-                challenger=Address(record["challenger"]),
-                reason=record["reason"],
-                counter_evidence_url=record["counter_evidence_url"],
-                bond=u256(int(record["bond"])),
-                status=record["status"],
-                resolution=record["resolution"],
-                analysis=record["analysis"],
-                created_at=u64(record["created_at"]),
-                resolved_at=u64(record["resolved_at"]),
-            )
-            self.dispute_ids.append(item.id)
-            self.disputes[item.id] = item
-
-        self.total_disputes = u32(3)
-        self.review_history_restored = True
 
     def _now(self) -> u64:
         return u64(int(datetime.now(timezone.utc).timestamp()))
@@ -269,6 +219,32 @@ class ProofFund(gl.Contract):
                 votes_cast=u32(0),
             ),
         )
+
+    def _settle_approved_milestone(
+        self, project: Project, milestone: Milestone
+    ) -> None:
+        if project.status == "REFUNDING":
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Project escrow is reserved for refunds")
+        if milestone.released:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Milestone was already released")
+        if project.released_amount + milestone.amount > project.funded_amount:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Insufficient funded escrow")
+
+        milestone.status = "APPROVED"
+        milestone.verdict = "APPROVED"
+        milestone.released = True
+        milestone.active_dispute_id = ""
+        project.released_amount += milestone.amount
+        self.total_released += milestone.amount
+
+        profile = self._profile(project.creator)
+        profile.milestones_approved += u32(1)
+        profile.total_earned += milestone.amount
+        self.reputation[project.creator] = profile
+        if project.released_amount == project.milestone_budget:
+            project.status = "COMPLETED"
+
+        _Recipient(project.creator).emit_transfer(value=milestone.amount)
 
     def _validate_text(self, value: str, field: str, minimum: int, maximum: int) -> None:
         clean = value.strip()
@@ -348,7 +324,10 @@ class ProofFund(gl.Contract):
         self.reputation[sender] = profile
         if tranche.funded_amount == tranche.goal:
             tranche.status = "FUNDED"
-        if project.funded_amount == project.funding_goal:
+        if (
+            project.funded_amount == project.funding_goal
+            and project.milestone_budget == project.funding_goal
+        ):
             project.status = "ACTIVE"
         self.tranches[tranche.id] = tranche
         self.projects[project.id] = project
@@ -380,33 +359,16 @@ class ProofFund(gl.Contract):
                     ],
                 }
 
-            prompt = f"""
-You are an independent grant milestone auditor. Evaluate only the supplied
-evidence against the explicit acceptance criteria. Do not reward effort,
-intentions, visual polish, or claims that are not supported by the page.
-
-Project: {project_title}
-Milestone: {milestone_title}
-Acceptance criteria:
-<criteria>{criteria}</criteria>
-Creator note:
-<note>{evidence_note}</note>
-Evidence page:
-<evidence>{page[:18000]}</evidence>
-
-Return JSON with exactly:
-{{
-  "verdict": "APPROVED" | "NEEDS_WORK" | "REJECTED",
-  "score": integer from 0 to 100,
-  "summary": concise audit conclusion under 500 characters,
-  "findings": array of 2 to 6 concise factual findings
-}}
-
-APPROVED requires direct evidence that every material criterion is satisfied.
-NEEDS_WORK means some criteria are supported but material gaps remain.
-REJECTED means the evidence is unrelated, inaccessible, deceptive, or fails
-the core criterion.
-"""
+            prompt = f"""Audit this grant milestone using only public evidence.
+Project:{project_title}\nMilestone:{milestone_title}
+Criteria:<criteria>{criteria}</criteria>
+Creator note:<note>{evidence_note}</note>
+Evidence:<evidence>{page[:18000]}</evidence>
+Return JSON: {{"verdict":"APPROVED|NEEDS_WORK|REJECTED","score":0-100,
+"summary":"under 500 chars","findings":["2-6 factual findings"]}}.
+APPROVED requires direct proof of every material criterion. NEEDS_WORK means
+partial proof with material gaps. REJECTED means core criteria fail or the
+source is irrelevant, inaccessible, or deceptive. Never reward unsupported claims."""
             result = gl.nondet.exec_prompt(prompt, response_format="json")
             if not isinstance(result, dict):
                 raise gl.vm.UserError(f"{ERROR_LLM} Invalid assessment format")
@@ -464,28 +426,16 @@ the core criterion.
             except Exception:
                 raise gl.vm.UserError(f"{ERROR_EXTERNAL} Dispute evidence unavailable")
 
-            prompt = f"""
-Act as an appeal panel for an on-chain grant milestone. Reassess the original
-evidence and the challenger's counter-evidence from first principles.
-
-Project: {project_title}
-Milestone: {milestone_title}
-Criteria: <criteria>{criteria}</criteria>
-Original verdict: {original_verdict}
-Original evidence: <original>{original_page[:12000]}</original>
-Challenge: <reason>{dispute_reason}</reason>
-Counter-evidence: <counter>{counter_page[:12000]}</counter>
-
-Return JSON:
-{{
-  "resolution": "UPHOLD" | "OVERTURN",
-  "final_verdict": "APPROVED" | "NEEDS_WORK" | "REJECTED",
-  "summary": concise reason under 600 characters
-}}
-
-UPHOLD means the original verdict remains correct. OVERTURN requires a
-material factual or interpretive error demonstrated by the counter-evidence.
-"""
+            prompt = f"""Reassess this grant appeal from first principles.
+Project:{project_title}\nMilestone:{milestone_title}
+Criteria:<criteria>{criteria}</criteria>\nOriginal verdict:{original_verdict}
+Original:<original>{original_page[:12000]}</original>
+Challenge:<reason>{dispute_reason}</reason>
+Counter-evidence:<counter>{counter_page[:12000]}</counter>
+Return JSON: {{"resolution":"UPHOLD|OVERTURN",
+"final_verdict":"APPROVED|NEEDS_WORK|REJECTED","summary":"under 600 chars"}}.
+UPHOLD must retain the original verdict. OVERTURN requires a demonstrated
+material error and must change it."""
             result = gl.nondet.exec_prompt(prompt, response_format="json")
             if not isinstance(result, dict):
                 raise gl.vm.UserError(f"{ERROR_LLM} Invalid dispute format")
@@ -496,6 +446,8 @@ material factual or interpretive error demonstrated by the counter-evidence.
             if final_verdict not in ("APPROVED", "NEEDS_WORK", "REJECTED"):
                 raise gl.vm.UserError(f"{ERROR_LLM} Invalid final verdict")
             if resolution == "UPHOLD" and final_verdict != original_verdict:
+                raise gl.vm.UserError(f"{ERROR_LLM} Inconsistent dispute result")
+            if resolution == "OVERTURN" and final_verdict == original_verdict:
                 raise gl.vm.UserError(f"{ERROR_LLM} Inconsistent dispute result")
             return {
                 "resolution": resolution,
@@ -566,6 +518,10 @@ material factual or interpretive error demonstrated by the counter-evidence.
             tranche_budget=u256(0),
             tranche_count=u32(0),
             proposal_count=u32(0),
+            refund_pool=u256(0),
+            refunded_amount=u256(0),
+            refund_claim_count=u32(0),
+            refund_opened_at=u64(0),
         )
         self._create_tranche(
             project,
@@ -643,11 +599,20 @@ material factual or interpretive error demonstrated by the counter-evidence.
             evaluated_at=u64(0),
             released=False,
             dispute_count=u32(0),
+            approved_at=u64(0),
+            appeal_deadline=u64(0),
+            active_dispute_id="",
         )
         self.milestone_ids.append(milestone_id)
         project.milestone_count = index
         project.milestone_budget += amount
-        project.status = "FUNDING"
+        if (
+            project.funded_amount == project.funding_goal
+            and project.milestone_budget == project.funding_goal
+        ):
+            project.status = "ACTIVE"
+        else:
+            project.status = "FUNDING"
         self.projects[project_id] = project
         return milestone_id
 
@@ -665,22 +630,6 @@ material factual or interpretive error demonstrated by the counter-evidence.
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Tranche is not accepting funds")
         self._record_funding(project, tranche, gl.message.value)
 
-    @gl.public.write.payable
-    def fund_project(self, project_id: str) -> None:
-        project = self._require_project(project_id)
-        if project.status != "FUNDING":
-            raise gl.vm.UserError(f"{ERROR_EXPECTED} Project is not accepting funds")
-        if self._now() > project.deadline:
-            raise gl.vm.UserError(f"{ERROR_EXPECTED} Funding deadline has passed")
-        for tranche_id in self.tranche_ids:
-            tranche = self.tranches[tranche_id]
-            if tranche.project_id == project_id and tranche.status == "OPEN":
-                if self._now() > tranche.deadline:
-                    continue
-                self._record_funding(project, tranche, gl.message.value)
-                return
-        raise gl.vm.UserError(f"{ERROR_EXPECTED} No open funding tranche")
-
     @gl.public.write
     def create_proposal(
         self,
@@ -692,6 +641,8 @@ material factual or interpretive error demonstrated by the counter-evidence.
         voting_ends_at: u64,
     ) -> str:
         project = self._require_project(project_id)
+        if project.status in ("REFUNDING", "COMPLETED"):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Governance is closed for this project")
         sender = gl.message.sender_address
         contribution = self.contributions.get(
             f"{project_id}:{sender.as_hex}", u256(0)
@@ -772,6 +723,9 @@ material factual or interpretive error demonstrated by the counter-evidence.
     @gl.public.write
     def vote_proposal(self, proposal_id: str, support: bool) -> None:
         proposal = self._require_proposal(proposal_id)
+        project = self._require_project(proposal.project_id)
+        if project.status == "REFUNDING":
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Governance is frozen during refunds")
         if proposal.status != "OPEN":
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Proposal is closed")
         if self._now() >= proposal.voting_ends_at:
@@ -807,6 +761,9 @@ material factual or interpretive error demonstrated by the counter-evidence.
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Proposal already finalized")
         if self._now() < proposal.voting_ends_at:
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Voting period is still open")
+        project = self._require_project(proposal.project_id)
+        if project.status == "REFUNDING":
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Governance is frozen during refunds")
 
         total_votes = proposal.yes_votes + proposal.no_votes
         passed = total_votes >= proposal.quorum and proposal.yes_votes > proposal.no_votes
@@ -814,7 +771,6 @@ material factual or interpretive error demonstrated by the counter-evidence.
         proposal.finalized_at = self._now()
 
         if passed:
-            project = self._require_project(proposal.project_id)
             if proposal.action == "EXTEND_DEADLINE":
                 project.deadline = u64(int(proposal.action_value))
             elif proposal.action == "PAUSE_FUNDING" and project.status == "FUNDING":
@@ -857,6 +813,8 @@ material factual or interpretive error demonstrated by the counter-evidence.
     def evaluate_milestone(self, project_id: str, milestone_id: str) -> None:
         project = self._require_project(project_id)
         milestone = self._require_milestone(project_id, milestone_id)
+        if project.status != "ACTIVE":
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Project is not active")
         if milestone.status != "SUBMITTED":
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Milestone is not awaiting evaluation")
 
@@ -874,25 +832,110 @@ material factual or interpretive error demonstrated by the counter-evidence.
         milestone.analysis = str(result["summary"])
         milestone.findings_json = json.dumps(result["findings"])
         milestone.evaluated_at = self._now()
-
-        if verdict == "APPROVED" and not milestone.released:
-            if project.released_amount + milestone.amount > project.funded_amount:
-                raise gl.vm.UserError(f"{ERROR_EXPECTED} Insufficient funded escrow")
-            milestone.released = True
-            project.released_amount += milestone.amount
-            self.total_released += milestone.amount
-            self.claimable[project.creator] = (
-                self.claimable.get(project.creator, u256(0)) + milestone.amount
-            )
-            profile = self._profile(project.creator)
-            profile.milestones_approved += u32(1)
-            profile.total_earned += milestone.amount
-            self.reputation[project.creator] = profile
-            if project.released_amount == project.milestone_budget:
-                project.status = "COMPLETED"
+        milestone.appeal_deadline = u64(
+            int(milestone.evaluated_at) + DISPUTE_WINDOW_SECONDS
+        )
+        milestone.active_dispute_id = ""
+        if verdict == "APPROVED":
+            milestone.status = "APPROVED_PENDING"
+            milestone.approved_at = milestone.evaluated_at
+        else:
+            milestone.status = verdict
+            milestone.approved_at = u64(0)
 
         self.milestones[milestone_id] = milestone
         self.projects[project_id] = project
+
+    @gl.public.write
+    def release_approved_milestone(
+        self, project_id: str, milestone_id: str
+    ) -> None:
+        project = self._require_project(project_id)
+        milestone = self._require_milestone(project_id, milestone_id)
+        if project.status != "ACTIVE":
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Project is not active")
+        if milestone.status != "APPROVED_PENDING":
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Milestone is not pending release")
+        if milestone.active_dispute_id != "":
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Milestone has an open dispute")
+        if self._now() <= milestone.appeal_deadline:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Dispute window is still open")
+
+        self._settle_approved_milestone(project, milestone)
+        self.milestones[milestone.id] = milestone
+        self.projects[project.id] = project
+
+    @gl.public.write
+    def open_refunds(self, project_id: str) -> None:
+        project = self._require_project(project_id)
+        if project.status in ("REFUNDING", "COMPLETED"):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Refund state is already final")
+        if self._now() <= project.deadline:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Project deadline has not passed")
+        if project.funded_amount == u256(0):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Project has no refundable funds")
+        if project.released_amount >= project.funded_amount:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Project has no refundable escrow")
+
+        for milestone_id in self.milestone_ids:
+            milestone = self.milestones[milestone_id]
+            if milestone.project_id != project_id:
+                continue
+            if milestone.active_dispute_id != "" or milestone.status == "DISPUTED":
+                raise gl.vm.UserError(f"{ERROR_EXPECTED} Resolve open disputes first")
+            if milestone.status == "APPROVED_PENDING":
+                raise gl.vm.UserError(f"{ERROR_EXPECTED} Settle approved milestones first")
+
+        project.refund_pool = project.funded_amount - project.released_amount
+        project.refunded_amount = u256(0)
+        project.refund_claim_count = u32(0)
+        project.refund_opened_at = self._now()
+        project.status = "REFUNDING"
+
+        for tranche_id in self.tranche_ids:
+            tranche = self.tranches[tranche_id]
+            if tranche.project_id == project_id and tranche.status == "OPEN":
+                tranche.status = "CLOSED"
+                self.tranches[tranche_id] = tranche
+        for proposal_id in self.proposal_ids:
+            proposal = self.proposals[proposal_id]
+            if proposal.project_id == project_id and proposal.status == "OPEN":
+                proposal.status = "CANCELLED"
+                proposal.finalized_at = self._now()
+                self.proposals[proposal_id] = proposal
+
+        self.projects[project_id] = project
+
+    @gl.public.write
+    def claim_refund(self, project_id: str) -> None:
+        project = self._require_project(project_id)
+        if project.status != "REFUNDING":
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Refunds are not open")
+
+        sender = gl.message.sender_address
+        contribution = self.contributions.get(
+            f"{project_id}:{sender.as_hex}", u256(0)
+        )
+        if contribution == u256(0):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Address did not fund this project")
+        claim_key = f"{project_id}:{sender.as_hex}"
+        if self.refund_claimed.get(claim_key, False):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Refund already claimed")
+
+        amount = contribution * project.refund_pool // project.funded_amount
+        if project.refund_claim_count + u32(1) == project.backer_count:
+            amount = project.refund_pool - project.refunded_amount
+        if amount == u256(0):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Refund rounds to zero")
+        if project.refunded_amount + amount > project.refund_pool:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Refund exceeds reserved escrow")
+
+        self.refund_claimed[claim_key] = True
+        project.refunded_amount += amount
+        project.refund_claim_count += u32(1)
+        self.total_refunded += amount
+        self.projects[project_id] = project
+        _Recipient(sender).emit_transfer(value=amount)
 
     @gl.public.write.payable
     def open_dispute(
@@ -904,10 +947,23 @@ material factual or interpretive error demonstrated by the counter-evidence.
     ) -> str:
         project = self._require_project(project_id)
         milestone = self._require_milestone(project_id, milestone_id)
-        if milestone.status not in ("APPROVED", "NEEDS_WORK", "REJECTED"):
+        if project.status != "ACTIVE":
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Project is not active")
+        if milestone.status not in ("APPROVED_PENDING", "NEEDS_WORK", "REJECTED"):
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Milestone has no disputable verdict")
+        if milestone.released:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Released milestones cannot be disputed")
+        if milestone.active_dispute_id != "":
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Milestone already has an open dispute")
+        if milestone.appeal_deadline == u64(0) or self._now() > milestone.appeal_deadline:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Dispute window has closed")
         if gl.message.sender_address == project.creator:
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Creator cannot challenge own milestone")
+        contribution = self.contributions.get(
+            f"{project_id}:{gl.message.sender_address.as_hex}", u256(0)
+        )
+        if contribution == u256(0):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Only project backers can dispute")
         self._validate_text(reason, "Dispute reason", 30, 1500)
         if not counter_evidence_url.startswith("https://"):
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Counter-evidence must use HTTPS")
@@ -928,9 +984,11 @@ material factual or interpretive error demonstrated by the counter-evidence.
             analysis="",
             created_at=self._now(),
             resolved_at=u64(0),
+            original_verdict=milestone.verdict,
         )
         self.dispute_ids.append(dispute_id)
         milestone.status = "DISPUTED"
+        milestone.active_dispute_id = dispute_id
         milestone.dispute_count += u32(1)
         self.milestones[milestone_id] = milestone
         self.total_disputes += u32(1)
@@ -946,7 +1004,11 @@ material factual or interpretive error demonstrated by the counter-evidence.
 
         project = self._require_project(dispute.project_id)
         milestone = self._require_milestone(dispute.project_id, dispute.milestone_id)
-        original_verdict = milestone.verdict
+        if project.status != "ACTIVE":
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Project is not active")
+        if milestone.active_dispute_id != dispute_id:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Dispute is not active for milestone")
+        original_verdict = dispute.original_verdict
         result = self._run_dispute_assessment(
             str(project.title),
             str(milestone.title),
@@ -959,6 +1021,10 @@ material factual or interpretive error demonstrated by the counter-evidence.
 
         resolution = str(result["resolution"])
         final_verdict = str(result["final_verdict"])
+        if resolution == "UPHOLD" and final_verdict != original_verdict:
+            raise gl.vm.UserError(f"{ERROR_LLM} Inconsistent upheld verdict")
+        if resolution == "OVERTURN" and final_verdict == original_verdict:
+            raise gl.vm.UserError(f"{ERROR_LLM} Overturn must change the verdict")
         dispute.status = "RESOLVED"
         dispute.resolution = resolution
         dispute.analysis = str(result["summary"])
@@ -967,46 +1033,26 @@ material factual or interpretive error demonstrated by the counter-evidence.
         milestone.verdict = final_verdict
         milestone.analysis = str(result["summary"])
         milestone.evaluated_at = self._now()
+        milestone.active_dispute_id = ""
 
         challenger_profile = self._profile(dispute.challenger)
         if resolution == "OVERTURN":
             challenger_profile.disputes_won += u32(1)
-            self.claimable[dispute.challenger] = (
-                self.claimable.get(dispute.challenger, u256(0)) + dispute.bond
-            )
-            if milestone.released:
-                milestone.released = False
-                project.released_amount -= milestone.amount
-                self.total_released -= milestone.amount
-                creator_claim = self.claimable.get(project.creator, u256(0))
-                if creator_claim >= milestone.amount:
-                    self.claimable[project.creator] = creator_claim - milestone.amount
-                    creator_profile = self._profile(project.creator)
-                    if creator_profile.milestones_approved > u32(0):
-                        creator_profile.milestones_approved -= u32(1)
-                    if creator_profile.total_earned >= milestone.amount:
-                        creator_profile.total_earned -= milestone.amount
-                    self.reputation[project.creator] = creator_profile
-                project.status = "ACTIVE"
+            _Recipient(dispute.challenger).emit_transfer(value=dispute.bond)
         else:
             challenger_profile.disputes_lost += u32(1)
-            self.claimable[project.creator] = (
-                self.claimable.get(project.creator, u256(0)) + dispute.bond
-            )
+            _Recipient(project.creator).emit_transfer(value=dispute.bond)
+
+        if final_verdict == "APPROVED":
+            self._settle_approved_milestone(project, milestone)
+        else:
+            milestone.released = False
+            milestone.approved_at = u64(0)
 
         self.reputation[dispute.challenger] = challenger_profile
         self.disputes[dispute_id] = dispute
         self.milestones[milestone.id] = milestone
         self.projects[project.id] = project
-
-    @gl.public.write
-    def claim(self) -> None:
-        sender = gl.message.sender_address
-        amount = self.claimable.get(sender, u256(0))
-        if amount == u256(0):
-            raise gl.vm.UserError(f"{ERROR_EXPECTED} Nothing to claim")
-        self.claimable[sender] = u256(0)
-        _Recipient(sender).emit_transfer(value=amount)
 
     @gl.public.view
     def get_dashboard(self) -> dict:
@@ -1014,12 +1060,15 @@ material factual or interpretive error demonstrated by the counter-evidence.
         completed = 0
         funded_tranches = 0
         open_proposals = 0
+        refunding = 0
         for project_id in self.project_ids:
             status = self.projects[project_id].status
             if status in ("FUNDING", "ACTIVE", "PAUSED"):
                 active += 1
             elif status == "COMPLETED":
                 completed += 1
+            elif status == "REFUNDING":
+                refunding += 1
         for tranche_id in self.tranche_ids:
             if self.tranches[tranche_id].status == "FUNDED":
                 funded_tranches += 1
@@ -1032,10 +1081,12 @@ material factual or interpretive error demonstrated by the counter-evidence.
             "completed_projects": completed,
             "total_funded": self.total_funded,
             "total_released": self.total_released,
+            "total_refunded": self.total_refunded,
             "total_disputes": self.total_disputes,
             "total_proposals": self.total_proposals,
             "open_proposals": open_proposals,
             "funded_tranches": funded_tranches,
+            "refunding_projects": refunding,
             "contract_balance": self.balance,
         }
 
@@ -1105,6 +1156,30 @@ material factual or interpretive error demonstrated by the counter-evidence.
         )
 
     @gl.public.view
+    def get_refund(self, project_id: str, account: str) -> dict:
+        project = self._require_project(project_id)
+        address = Address(account)
+        contribution = self.contributions.get(
+            f"{project_id}:{address.as_hex}", u256(0)
+        )
+        claimed = self.refund_claimed.get(
+            f"{project_id}:{address.as_hex}", False
+        )
+        amount = u256(0)
+        if project.status == "REFUNDING" and contribution > u256(0) and not claimed:
+            amount = contribution * project.refund_pool // project.funded_amount
+            if project.refund_claim_count + u32(1) == project.backer_count:
+                amount = project.refund_pool - project.refunded_amount
+        return {
+            "status": project.status,
+            "contribution": contribution,
+            "refund_pool": project.refund_pool,
+            "refunded_amount": project.refunded_amount,
+            "claimable_refund": amount,
+            "claimed": claimed,
+        }
+
+    @gl.public.view
     def get_profile(self, account: str) -> dict:
         address = Address(account)
         profile = self._profile(address)
@@ -1119,5 +1194,4 @@ material factual or interpretive error demonstrated by the counter-evidence.
             "total_earned": profile.total_earned,
             "proposals_created": profile.proposals_created,
             "votes_cast": profile.votes_cast,
-            "claimable": self.claimable.get(address, u256(0)),
         }

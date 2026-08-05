@@ -903,6 +903,10 @@ textarea:focus-visible {
   color: var(--acid);
 }
 
+.project-meta b[data-status="REFUNDING"] {
+  color: var(--red);
+}
+
 .project-body h3 {
   margin: 34px 0 10px;
   overflow-wrap: anywhere;
@@ -1512,6 +1516,16 @@ textarea:focus-visible {
   background: var(--cyan);
 }
 
+.milestone-rail span.approved_pending {
+  background: var(--acid);
+  box-shadow: 0 0 0 5px rgba(215, 255, 39, 0.12);
+  animation: escrow-hold 1.8s ease-in-out infinite;
+}
+
+@keyframes escrow-hold {
+  50% { box-shadow: 0 0 0 10px rgba(215, 255, 39, 0.02); }
+}
+
 .milestone-content {
   min-width: 0;
   padding: 21px 22px 25px;
@@ -1524,6 +1538,17 @@ textarea:focus-visible {
   gap: 15px;
   color: var(--silver);
   font: 500 9px/1.4 var(--mono);
+}
+
+.milestone-facts span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.coverage-alert {
+  margin-bottom: 18px;
+  border-left-color: var(--acid);
 }
 
 .audit-note {

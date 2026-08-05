@@ -1,10 +1,10 @@
 # ProofFund
 
-**A pressure map for accountable capital on GenLayer Bradbury**
+**A pressure map for accountable capital on GenLayer StudioNet**
 
 [Enter the live protocol](https://abstrusimad.github.io/prooffund/) |
-[Inspect the contract](https://explorer-bradbury.genlayer.com/address/0x3d7E652c104d67c813C594D83101A2e6682dA520) |
-[Trace the deployment](https://explorer-bradbury.genlayer.com/tx/0x41a65eabb5aedbb0493db8c94da2c21f04dbe290cd7df4721b95390d89dcc0cf)
+[Inspect the contract](https://explorer-studio.genlayer.com/address/0xC23Fa278dAeDeC6cB8b44239d8260d6906693Fa7) |
+[Trace the deployment](https://explorer-studio.genlayer.com/tx/0xe6ffb02e2da06b450d520d76510fd7dddc7cc32192264c7bd29d235babae51c6)
 
 ![ProofFund capital-flow workspace](app/proof-desktop.png)
 
@@ -18,7 +18,7 @@ met. Capital advances only after the evidence gate opens.
 
 This is not a consensus-answer wrapper. Validator judgment changes durable
 protocol state: it records a reasoned verdict, releases escrow, creates
-claimable balances, enables a bonded appeal path, updates reputation, and can
+an appealable settlement, updates reputation, and can
 advance the project lifecycle.
 
 ## Live Pressure Readings
@@ -26,18 +26,18 @@ advance the project lifecycle.
 The public deployment currently exposes:
 
 - **9** project reservoirs
-- **27** bounded funding tranches
-- **57 GEN** committed through real Bradbury transactions
+- **10** bounded funding tranches
+- **9 GEN** committed through real StudioNet transactions
 - **3** open contribution-weighted proposals
-- **3** open bonded disputes
+- **9** fully allocated milestone plans
 - **0** mocked protocol records
 
 | Network proof | Value |
 |---|---|
-| Chain | GenLayer Bradbury, chain ID `4221` |
-| Intelligent Contract | `0x3d7E652c104d67c813C594D83101A2e6682dA520` |
-| Deployment transaction | [`0x41a65e...dcc0cf`](https://explorer-bradbury.genlayer.com/tx/0x41a65eabb5aedbb0493db8c94da2c21f04dbe290cd7df4721b95390d89dcc0cf) |
-| Explorer | [explorer-bradbury.genlayer.com](https://explorer-bradbury.genlayer.com) |
+| Chain | GenLayer StudioNet, chain ID `61999` |
+| Intelligent Contract | `0xC23Fa278dAeDeC6cB8b44239d8260d6906693Fa7` |
+| Deployment transaction | [`0xe6ffb0...e51c6`](https://explorer-studio.genlayer.com/tx/0xe6ffb02e2da06b450d520d76510fd7dddc7cc32192264c7bd29d235babae51c6) |
+| Explorer | [explorer-studio.genlayer.com](https://explorer-studio.genlayer.com) |
 | Repository | [AbstrusImad/prooffund](https://github.com/AbstrusImad/prooffund) |
 | Application | [abstrusimad.github.io/prooffund](https://abstrusimad.github.io/prooffund/) |
 
@@ -53,10 +53,12 @@ flowchart LR
     E --> T["Bounded tranche"]
     T --> M["Milestone criteria"]
     M -->|public HTTPS evidence| V["GenLayer validator consensus"]
-    V -->|accepted| R["Creator claimable balance"]
+    V -->|approved| W["Seven-day dispute window"]
+    W -->|unchallenged| R["Atomic creator transfer"]
     V -->|rejected with explanation| C["Evidence correction"]
     V -->|bonded challenge| D["Dispute re-adjudication"]
-    D -->|overturn or uphold| R
+    D -->|final approval| R
+    D -->|final rejection| F["Escrow remains refundable"]
     S -->|contribution weight| G["Project governance"]
     G -->|approved executable action| T
 ```
@@ -65,19 +67,18 @@ The same route appears in the interface as a live capital field. Projects are
 vertical reservoirs, tranche and evidence state become connected channels, and
 every write becomes an animated current. The current remains active through
 wallet signature and validator consensus, then stops in a persistent accepted
-or failed result with the transaction hash and a Bradbury explorer link.
+or failed result with the transaction hash and a StudioNet explorer link.
 
-## Verifiable Network Migration
+## Verifiable StudioNet Genesis
 
-The Bradbury release was reconstructed from an audited StudioNet snapshot,
-whose SHA-256 digest is
-`7eaf1828878b3fe0c9885dcdc5dc64711cf8d2a0bf8e59aed8a0553bdee274b5`.
-Projects, tranches, milestones, funding, governance, and votes were replayed
-through their native public contract methods. Historical validator verdicts
-and their three bonded disputes are restored once through an owner-gated,
-hash-locked method backed by exactly `0.3 GEN`. The deployment manifest records
-every Bradbury transaction, so the migration can be independently traced
-without trusting a frontend fixture.
+This release starts from a clean contract without privileged snapshot imports.
+Account 0 created every live project, milestone, contribution, proposal, and
+vote through the same public methods exposed to application users. The
+idempotent transaction manifest records 33 accepted writes and enforces a hard
+9 GEN funding ceiling before any payable operation can be submitted. A separate
+live verifier reads the contract back and proves the project count, milestone
+coverage, tranche state, governance weights, profile counters, escrow balance,
+and account identity independently of the frontend.
 
 ## Contract State Channels
 
@@ -86,8 +87,8 @@ deadline, and initial tranche. Additional tranches cannot push the combined
 target beyond the project goal.
 
 **Escrow channel.** Sponsors fund a selected tranche with payable GEN.
-Accounting tracks contribution weight, total escrow, released value, and
-claimable balances without trusting the frontend.
+Accounting tracks contribution weight, released value, refund reserves, and
+direct transfers without trusting the frontend.
 
 **Evidence channel.** A milestone binds a title, amount, deadline, acceptance
 criteria, and evidence requirements. Creators submit a public HTTPS source and
@@ -97,9 +98,16 @@ an explanatory note.
 evidence using LLM-backed web reasoning. The contract normalizes the response
 into a verdict, score, analysis, and findings before changing state.
 
-**Challenge channel.** A participant can post a GEN bond and counter-evidence.
-Consensus re-evaluates the record and persists whether the original verdict was
-upheld or overturned.
+**Challenge channel.** A backer can post a GEN bond during the seven-day window
+and provide counter-evidence. The original verdict is snapshotted before the
+milestone enters `DISPUTED`. Resolution atomically persists the final verdict,
+release state, accounting, reputation, milestone transfer, and bond transfer.
+
+**Recovery channel.** A project that reaches its deadline with unreleased
+escrow can enter terminal `REFUNDING` state after pending approvals and disputes
+are settled. This freezes evidence, releases, funding, and governance. Each
+backer then receives a one-time proportional direct refund, with final-claimant
+dust handling so the distributed total exactly equals the reserved pool.
 
 **Governance channel.** Contributors receive voting weight from actual funding.
 Proposals can signal intent or execute project actions such as pausing funding,
@@ -107,7 +115,7 @@ reopening it, or extending a deadline after quorum and finalization.
 
 **Reputation channel.** Address profiles accumulate projects created, projects
 backed, funded value, approved milestones, disputes won or lost, proposals,
-votes, earnings, and claims.
+votes, and directly settled earnings.
 
 ## Decision Envelope
 
@@ -123,7 +131,7 @@ verdict      APPROVED | REJECTED
 score        bounded numeric confidence
 analysis     readable project-specific reasoning
 findings     normalized evidence observations
-state effect milestone transition + escrow release when approved
+state effect pending approval + timed release or atomic appeal settlement
 ```
 
 Unreachable, generic, stale, or insufficient evidence does not silently pass.
@@ -137,8 +145,8 @@ frontend error extraction inspects GenVM receipt payloads to avoid
 | Family | Writes | Reads |
 |---|---|---|
 | Projects | `create_project`, `add_funding_tranche` | `get_projects`, `get_project`, `get_dashboard` |
-| Capital | `fund_tranche`, `fund_project`, `claim` | `get_tranches`, `get_contribution`, `get_profile` |
-| Delivery | `add_milestone`, `submit_evidence`, `evaluate_milestone` | `get_milestones` |
+| Capital | `fund_tranche`, `open_refunds`, `claim_refund` | `get_tranches`, `get_contribution`, `get_refund`, `get_profile` |
+| Delivery | `add_milestone`, `submit_evidence`, `evaluate_milestone`, `release_approved_milestone` | `get_milestones` |
 | Appeals | `open_dispute`, `resolve_dispute` | `get_disputes` |
 | Governance | `create_proposal`, `vote_proposal`, `finalize_proposal` | `get_proposals`, `get_governance`, `get_vote` |
 
@@ -151,13 +159,13 @@ single-vote rules, quorum, and accounting invariants are enforced inside
 The Vue application is organized as four perimeter routes:
 
 - **FLOW** maps the live registry, capital totals, project fill levels, and
-  Bradbury status.
+  StudioNet status.
 - **SOURCE** creates a project through sequential input channels with immediate
   validation.
 - **VOTE** exposes open, passed, and rejected governance branches with weighted
   totals.
-- **CLAIM** reads the connected address profile, owned projects, reputation,
-  and claimable GEN.
+- **CLAIM** reads the connected address portfolio, owned projects, reputation,
+  funded capital, and directly settled earnings.
 
 A disconnected visitor always enters through the dedicated wallet source valve.
 After explicit connection, the choice is persisted in
@@ -175,10 +183,10 @@ visible above the route controls.
 ```text
 contracts/proof_fund.py          Intelligent Contract and protocol invariants
 tests/direct/                    Direct-mode lifecycle and adversarial tests
-tests/integration/               Bradbury integration checks
+tests/integration/               Network integration checks
 deploy/                          GenLayer deployment entrypoint
-deployments/bradbury.json        Canonical public deployment and transaction manifest
-scripts/                         Idempotent live-state preparation
+deployments/studionet.json       Canonical deployment and 33-transaction manifest
+scripts/                         Idempotent StudioNet deployment, seed, and verification
 app/src/services/genlayer.js     SDK reads, writes, retries, receipt decoding
 app/src/stores/proofFund.js      Wallet persistence and transaction state machine
 app/src/views/                   Flow, source, project, vote, and claim surfaces
@@ -191,7 +199,7 @@ The architecture and trust boundaries are expanded in
 ## Bring Up a Local Current
 
 Requirements: Node.js 22+, Corepack, pnpm, Python 3.11+, GenVM lint tooling, and
-a Bradbury-compatible browser wallet.
+a StudioNet-compatible browser wallet.
 
 ```bash
 git clone https://github.com/AbstrusImad/prooffund.git
@@ -209,7 +217,7 @@ variables:
 
 ```dotenv
 VITE_CONTRACT_ADDRESS=<deployed intelligent contract address>
-VITE_EXPLORER_URL=<current Bradbury explorer origin>
+VITE_EXPLORER_URL=https://explorer-studio.genlayer.com
 ```
 
 No wallet key belongs in a Vite variable. Root and nested `.env` files are
@@ -228,17 +236,18 @@ corepack pnpm run build
 Current release evidence:
 
 - GenVM lint passed.
-- 9 direct contract tests passed.
+- 15 direct contract tests passed, including adversarial atomic settlement,
+  dispute-window enforcement, full-coverage activation, and refund accounting.
 - The production Vite build passed.
 - Desktop and mobile browser inspection passed with no runtime console errors.
-- Live reads returned 9 projects, 27 tranches, 57 funded GEN, 3 proposals, and
-  3 disputes.
+- Live reads returned 9 projects, 9 milestones, 10 tranches, 9 funded GEN, and
+  3 contribution-weighted proposals across 33 accepted transactions.
 - Wallet restoration, direct routes, local image fallbacks, action gates,
   transaction terminal states, and readable receipt failures are implemented.
 
 ## Deployment Boundary
 
-`npx genlayer deploy` uses `gltest.config.yaml` and obtains the deployer
+The deployment scripts use `gltest.config.yaml` and obtain the deployer
 credential from the local environment. The credential is never read by the
 frontend, copied into build output, or stored in deployment metadata.
 
@@ -253,11 +262,15 @@ and publishes to GitHub Pages.
 - A global transaction guard rejects duplicate submissions during signature or
   consensus.
 - Funding and dispute bonds are contract-accounted.
+- Approved capital cannot leave escrow before the seven-day dispute window.
+- Disputes cannot open after release, after the window, or in parallel.
+- Activation requires milestone allocation equal to the full funding goal.
+- Refund mode is terminal and reserves only unreleased project escrow.
 - Consensus output is normalized before state mutation.
 - Accepted writes refresh live state while preserving the terminal receipt.
-- Saturated Bradbury reads and writes use bounded backoff.
+- Saturated StudioNet reads and writes use bounded backoff.
 - Project images use local deterministic fallbacks.
-- The deployment is a Bradbury testnet protocol release, not an audited mainnet
+- The deployment is a StudioNet protocol release, not an audited mainnet
   financial product.
 
 ## Release Mark

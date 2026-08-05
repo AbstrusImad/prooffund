@@ -1,9 +1,8 @@
 networks:
-  default: testnet_bradbury
-  testnet_bradbury:
+  default: studionet
+  studionet:
     accounts:
       - "${GENLAYER_PRIVATE_KEY_0}"
-
 paths:
   contracts: contracts
   artifacts: artifacts

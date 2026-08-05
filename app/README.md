@@ -1,7 +1,11 @@
 # ProofFund App
 
 Vue application connected directly to the deployed ProofFund contract on
-GenLayer Bradbury.
+GenLayer StudioNet.
+
+The UI exposes seven-day approval holds, bonded appeals, permissionless
+post-window release, terminal project refunds, and one-time proportional backer
+claims. Every write uses the shared signature/consensus/result state machine.
 
 ```bash
 corepack pnpm install
@@ -13,5 +17,5 @@ Required configuration:
 
 ```dotenv
 VITE_CONTRACT_ADDRESS=0x...
-VITE_EXPLORER_URL=https://explorer-bradbury.genlayer.com
+VITE_EXPLORER_URL=https://explorer-studio.genlayer.com
 ```

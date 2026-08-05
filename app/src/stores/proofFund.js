@@ -50,7 +50,7 @@ async function refresh() {
       state.proposalVotes = {};
     }
   } catch (error) {
-    state.error = error.message || "Unable to read Bradbury.";
+    state.error = error.message || "Unable to read StudioNet.";
   } finally {
     state.loading = false;
   }
@@ -114,7 +114,7 @@ async function transact(
     ["AWAITING_SIGNATURE", "CONSENSUS"].includes(state.transaction.status)
   ) {
     throw new Error(
-      `${state.transaction.label} is already moving through Bradbury consensus.`,
+      `${state.transaction.label} is already moving through StudioNet consensus.`,
     );
   }
   state.error = "";
@@ -135,7 +135,7 @@ async function transact(
       (hash) => {
         state.transaction.hash = hash;
         state.transaction.status = "CONSENSUS";
-        state.transaction.message = "Bradbury validators are processing the transaction.";
+        state.transaction.message = "StudioNet validators are processing the transaction.";
       },
     );
     state.transaction.status = "ACCEPTED";
@@ -170,6 +170,9 @@ async function loadProject(projectId) {
   const contribution = state.wallet
     ? await readContract("get_contribution", [projectId, state.wallet])
     : 0;
+  const refund = state.wallet
+    ? await readContract("get_refund", [projectId, state.wallet])
+    : null;
   const votes = {};
   if (state.wallet) {
     await Promise.all(
@@ -181,7 +184,16 @@ async function loadProject(projectId) {
       }),
     );
   }
-  return { project, milestones, disputes, tranches, proposals, contribution, votes };
+  return {
+    project,
+    milestones,
+    disputes,
+    tranches,
+    proposals,
+    contribution,
+    refund,
+    votes,
+  };
 }
 
 function dismissTransaction() {

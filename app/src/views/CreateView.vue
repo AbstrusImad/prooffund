@@ -76,7 +76,7 @@ const submit = async () => {
         Math.floor(new Date(form.trancheDeadline).getTime() / 1000),
       ],
       0n,
-      { successMessage: "Project created and published to the Bradbury registry." },
+      { successMessage: "Project created and published to the StudioNet registry." },
     );
     const own = state.projects
       .filter(
@@ -193,7 +193,7 @@ const submit = async () => {
           <Check :size="17" />
           <span v-if="formError" class="form-error">{{ formError }}</span>
           <span v-else-if="!ready">{{ validationIssue }}</span>
-          <span v-else>Ready to publish on Bradbury</span>
+          <span v-else>Ready to publish on StudioNet</span>
         </div>
         <button class="primary-button" type="submit" :disabled="submitting">
           {{ !isConnected ? "Connect to continue" : submitting ? "Submitting..." : "Create project" }}

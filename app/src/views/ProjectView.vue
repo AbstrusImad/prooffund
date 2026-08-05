@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import {
   ArrowLeft,
@@ -20,6 +20,8 @@ import {
   Check,
   X,
   Clock3,
+  HandCoins,
+  TimerReset,
 } from "lucide-vue-next";
 import BaseModal from "../components/BaseModal.vue";
 import { useProofFund } from "../stores/proofFund";
@@ -35,6 +37,7 @@ const data = reactive({
   tranches: [],
   proposals: [],
   contribution: 0,
+  refund: null,
   votes: {},
 });
 const loading = ref(true);
@@ -51,6 +54,9 @@ const addingTranche = ref(false);
 const creatingProposal = ref(false);
 const votingProposal = ref("");
 const finalizingProposal = ref("");
+const releasingMilestone = ref("");
+const openingRefunds = ref(false);
+const claimingRefund = ref(false);
 const actionError = ref("");
 const fundingAmount = ref("1");
 const milestoneForm = reactive({ title: "", criteria: "", amount: "", due: "" });
@@ -78,6 +84,7 @@ const reload = async () => {
 };
 
 onMounted(reload);
+watch(() => state.wallet, reload);
 
 const isCreator = computed(
   () =>
@@ -109,7 +116,21 @@ const remainingTrancheBudget = computed(() => {
 const canPropose = computed(
   () =>
     BigInt(data.project?.funded_amount || 0) > 0n &&
+    !["REFUNDING", "COMPLETED"].includes(data.project?.status) &&
     (isCreator.value || BigInt(data.contribution || 0) > 0n),
+);
+const isBacker = computed(() => BigInt(data.contribution || 0) > 0n);
+const hasPendingRelease = computed(() =>
+  data.milestones.some((item) => item.status === "APPROVED_PENDING"),
+);
+const canOpenRefunds = computed(
+  () =>
+    data.project &&
+    !["REFUNDING", "COMPLETED"].includes(data.project.status) &&
+    Number(data.project.deadline) < Date.now() / 1000 &&
+    BigInt(data.project.funded_amount || 0) > BigInt(data.project.released_amount || 0) &&
+    openDisputes.value.length === 0 &&
+    !hasPendingRelease.value,
 );
 
 const ensureWallet = async () => {
@@ -169,7 +190,7 @@ const addTranche = async () => {
       "add_funding_tranche",
       [data.project.id, trancheForm.title, goal, deadline],
       0n,
-      { successMessage: "Funding tranche opened on Bradbury." },
+      { successMessage: "Funding tranche opened on StudioNet." },
     );
     modal.value = "";
     await reload();
@@ -237,7 +258,7 @@ const voteProposal = async (proposal, support) => {
       "vote_proposal",
       [proposal.id, support],
       0n,
-      { successMessage: `${support ? "YES" : "NO"} vote recorded on Bradbury.` },
+      { successMessage: `${support ? "YES" : "NO"} vote recorded on StudioNet.` },
     );
     await reload();
   } catch (error) {
@@ -352,7 +373,7 @@ const evaluate = async (milestone) => {
       "evaluate_milestone",
       [data.project.id, milestone.id],
       0n,
-      { successMessage: "Consensus verdict recorded on Bradbury." },
+      { successMessage: "Consensus verdict recorded on StudioNet." },
     );
     await reload();
   } catch (error) {
@@ -372,7 +393,7 @@ const openDispute = async () => {
       "open_dispute",
       [data.project.id, selectedMilestone.value.id, disputeForm.reason, disputeForm.url],
       toWei(disputeForm.bond),
-      { successMessage: "Bonded dispute opened and recorded on Bradbury." },
+      { successMessage: "Bonded dispute opened and recorded on StudioNet." },
     );
     modal.value = "";
     await reload();
@@ -384,9 +405,68 @@ const openDispute = async () => {
 };
 
 const resolveDispute = async (dispute) => {
-  await ensureWallet();
-  await transact("Resolving dispute by consensus", "resolve_dispute", [dispute.id]);
-  await reload();
+  actionError.value = "";
+  try {
+    await ensureWallet();
+    await transact("Resolving dispute by consensus", "resolve_dispute", [dispute.id], 0n, {
+      successMessage: "Appeal verdict, escrow accounting, and transfers settled atomically.",
+    });
+    await reload();
+  } catch (error) {
+    actionError.value = formatError(error);
+  }
+};
+
+const releaseMilestone = async (milestone) => {
+  actionError.value = "";
+  releasingMilestone.value = milestone.id;
+  try {
+    await ensureWallet();
+    await transact(
+      `Releasing ${milestone.id}`,
+      "release_approved_milestone",
+      [data.project.id, milestone.id],
+      0n,
+      { successMessage: `${fromWei(milestone.amount)} GEN released after the dispute window.` },
+    );
+    await reload();
+  } catch (error) {
+    actionError.value = formatError(error);
+  } finally {
+    releasingMilestone.value = "";
+  }
+};
+
+const openProjectRefunds = async () => {
+  actionError.value = "";
+  openingRefunds.value = true;
+  try {
+    await ensureWallet();
+    await transact("Opening terminal refunds", "open_refunds", [data.project.id], 0n, {
+      successMessage: "Unreleased escrow is frozen and reserved for proportional backer refunds.",
+    });
+    await reload();
+  } catch (error) {
+    actionError.value = formatError(error);
+  } finally {
+    openingRefunds.value = false;
+  }
+};
+
+const claimProjectRefund = async () => {
+  actionError.value = "";
+  claimingRefund.value = true;
+  try {
+    await ensureWallet();
+    await transact("Claiming escrow refund", "claim_refund", [data.project.id], 0n, {
+      successMessage: "Your proportional refund was transferred from reserved escrow.",
+    });
+    await reload();
+  } catch (error) {
+    actionError.value = formatError(error);
+  } finally {
+    claimingRefund.value = false;
+  }
 };
 
 const openModal = (name, item = null) => {
@@ -413,6 +493,10 @@ const proposalPercent = (proposal) => {
 };
 const proposalEnded = (proposal) =>
   Number(proposal.voting_ends_at) <= Date.now() / 1000;
+const disputeWindowOpen = (milestone) =>
+  Number(milestone.appeal_deadline || 0) >= Date.now() / 1000;
+const releaseReady = (milestone) =>
+  milestone.status === "APPROVED_PENDING" && !disputeWindowOpen(milestone);
 </script>
 
 <template>
@@ -422,7 +506,7 @@ const proposalEnded = (proposal) =>
   <div v-else-if="loadError" class="page">
     <section class="empty-state">
       <RefreshCw :size="28" />
-      <h3>Bradbury is temporarily busy</h3>
+      <h3>StudioNet is temporarily busy</h3>
       <p>{{ loadError }}</p>
       <button class="primary-button" type="button" @click="reload">Retry project data</button>
     </section>
@@ -524,6 +608,13 @@ const proposalEnded = (proposal) =>
               Budget fully allocated
             </span>
           </div>
+          <div
+            v-if="progress === 100 && remainingMilestoneBudget > 0n"
+            class="escrow-note coverage-alert"
+          >
+            <ShieldCheck :size="17" />
+            <span>Activation remains locked until milestones allocate the remaining {{ fromWei(remainingMilestoneBudget) }} GEN.</span>
+          </div>
 
           <div v-if="data.milestones.length" class="milestone-list">
             <article v-for="milestone in data.milestones" :key="milestone.id" class="milestone-item">
@@ -541,6 +632,9 @@ const proposalEnded = (proposal) =>
                   <span>Due {{ formatDate(milestone.due_at) }}</span>
                   <span v-if="milestone.score">Consensus score {{ milestone.score }}/100</span>
                   <span v-if="milestone.dispute_count">{{ milestone.dispute_count }} dispute</span>
+                  <span v-if="milestone.status === 'APPROVED_PENDING'">
+                    <TimerReset :size="14" /> Disputes close {{ formatDate(milestone.appeal_deadline) }}
+                  </span>
                 </div>
                 <div v-if="milestone.analysis" class="audit-note">
                   <ShieldCheck :size="18" />
@@ -570,12 +664,23 @@ const proposalEnded = (proposal) =>
                     {{ evaluatingMilestone === milestone.id ? "Evaluating..." : "Run consensus" }}
                   </button>
                   <button
-                    v-if="!isCreator && ['APPROVED', 'NEEDS_WORK', 'REJECTED'].includes(milestone.status)"
+                    v-if="!isCreator && isBacker && ['APPROVED_PENDING', 'NEEDS_WORK', 'REJECTED'].includes(milestone.status) && disputeWindowOpen(milestone)"
                     class="danger-button"
                     type="button"
                     @click="openModal('dispute', milestone)"
                   >
                     <Gavel :size="15" /> Challenge verdict
+                  </button>
+                  <button
+                    v-if="releaseReady(milestone)"
+                    class="primary-button compact"
+                    type="button"
+                    :disabled="releasingMilestone === milestone.id"
+                    @click="releaseMilestone(milestone)"
+                  >
+                    <span v-if="releasingMilestone === milestone.id" class="button-spinner"></span>
+                    <HandCoins v-else :size="15" />
+                    {{ releasingMilestone === milestone.id ? "Releasing..." : "Release approved funds" }}
                   </button>
                 </div>
               </div>
@@ -670,11 +775,36 @@ const proposalEnded = (proposal) =>
           <div><dt>Released</dt><dd>{{ fromWei(data.project.released_amount) }} GEN</dd></div>
           <div><dt>Milestone budget</dt><dd>{{ fromWei(data.project.milestone_budget) }} GEN</dd></div>
           <div><dt>Open disputes</dt><dd>{{ openDisputes.length }}</dd></div>
+          <div v-if="data.project.status === 'REFUNDING'"><dt>Refund reserve</dt><dd>{{ fromWei(data.project.refund_pool) }} GEN</dd></div>
+          <div v-if="data.project.status === 'REFUNDING'"><dt>Refunded</dt><dd>{{ fromWei(data.project.refunded_amount) }} GEN</dd></div>
         </dl>
         <a v-if="data.project.status === 'FUNDING' && progress < 100" class="primary-button full" href="#tranches">
           <Layers3 :size="17" /> Choose funding tranche
         </a>
-        <div class="escrow-note"><ShieldCheck :size="17" /><span>Funds remain in contract escrow until a milestone is approved.</span></div>
+        <button
+          v-if="canOpenRefunds"
+          class="danger-button full"
+          type="button"
+          :disabled="openingRefunds"
+          @click="openProjectRefunds"
+        >
+          <span v-if="openingRefunds" class="button-spinner dark"></span>
+          <TimerReset v-else :size="17" />
+          {{ openingRefunds ? "Reserving refunds..." : "Open backer refunds" }}
+        </button>
+        <button
+          v-if="data.project.status === 'REFUNDING' && data.refund && !data.refund.claimed && BigInt(data.refund.claimable_refund || 0) > 0n"
+          class="primary-button full"
+          type="button"
+          :disabled="claimingRefund"
+          @click="claimProjectRefund"
+        >
+          <span v-if="claimingRefund" class="button-spinner"></span>
+          <HandCoins v-else :size="17" />
+          {{ claimingRefund ? "Transferring refund..." : `Claim ${fromWei(data.refund.claimable_refund)} GEN` }}
+        </button>
+        <div v-if="data.refund?.claimed" class="escrow-note"><BadgeCheck :size="17" /><span>Your refund has been transferred.</span></div>
+        <div v-else class="escrow-note"><ShieldCheck :size="17" /><span>Approved funds remain in escrow for a seven-day dispute window before transfer.</span></div>
       </aside>
     </div>
 

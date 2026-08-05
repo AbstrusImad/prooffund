@@ -91,10 +91,10 @@ const refreshSafely = async () => {
         :href="explorerUrl"
         target="_blank"
         rel="noreferrer"
-        title="Open Bradbury explorer"
+        title="Open StudioNet explorer"
       >
         <i />
-        <span>BRADBURY</span>
+        <span>STUDIONET</span>
         <ExternalLink :size="14" />
       </a>
       <button type="button" :class="{ spinning: refreshing }" title="Refresh live data" @click="refreshSafely">

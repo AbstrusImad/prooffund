@@ -3,13 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "audit:source": "node scripts/audit-source-state.mjs",
-    "snapshot:build": "node scripts/build-migration-payload.mjs",
-    "deploy": "node scripts/deploy-bradbury.mjs",
-    "snapshot:import": "node scripts/seed-bradbury.mjs",
-    "finalize:bradbury": "node scripts/finalize-bradbury.mjs",
-    "recover:idleness": "node scripts/recover-bradbury-idleness.mjs",
-    "verify:live": "node scripts/verify-bradbury.mjs"
+    "deploy": "node scripts/deploy-studionet.mjs",
+    "seed": "node scripts/seed-studionet.mjs",
+    "verify:live": "node scripts/verify-studionet.mjs"
   },
   "devDependencies": {
     "genlayer-js": "^1.1.8"

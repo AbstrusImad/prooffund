@@ -1,10 +1,10 @@
 import { createClient } from "genlayer-js";
-import { testnetBradbury } from "genlayer-js/chains";
+import { studionet } from "genlayer-js/chains";
 import { ExecutionResult, TransactionStatus } from "genlayer-js/types";
 
 export const contractAddress = import.meta.env.VITE_CONTRACT_ADDRESS || "";
 export const explorerUrl =
-  import.meta.env.VITE_EXPLORER_URL || "https://explorer-bradbury.genlayer.com";
+  import.meta.env.VITE_EXPLORER_URL || "https://explorer-studio.genlayer.com";
 
 const assertContract = () => {
   if (!/^0x[a-fA-F0-9]{40}$/.test(contractAddress)) {
@@ -12,7 +12,7 @@ const assertContract = () => {
   }
 };
 
-export const publicClient = createClient({ chain: testnetBradbury });
+export const publicClient = createClient({ chain: studionet });
 
 const isNetworkBusy = (error) =>
   String(error?.details || error?.message || error).includes("Server busy");
@@ -38,8 +38,8 @@ export async function connectWallet({ silent = false } = {}) {
   });
   const address = accounts?.[0];
   if (!address) return null;
-  const client = createClient({ chain: testnetBradbury, account: address });
-  if (!silent) await client.connect("testnetBradbury");
+  const client = createClient({ chain: studionet, account: address });
+  if (!silent) await client.connect("studionet");
   return { address, client };
 }
 
@@ -164,7 +164,7 @@ export async function writeContract(
   assertContract();
   if (!client) throw new Error("Connect your wallet before continuing.");
 
-  await client.connect("testnetBradbury");
+  await client.connect("studionet");
   const hash = await retryNetworkBusy(() =>
     client.writeContract({
       address: contractAddress,

@@ -2,6 +2,7 @@
 import { computed } from "vue";
 import { BadgeCheck, CircleDollarSign, Gavel, Landmark, Vote, Wallet } from "lucide-vue-next";
 import ProjectCard from "../components/ProjectCard.vue";
+import DataLoader from "../components/DataLoader.vue";
 import { useProofFund } from "../stores/proofFund";
 import { fromWei } from "../services/genlayer";
 
@@ -21,6 +22,10 @@ const ownProjects = computed(() =>
       <p>Your portfolio and reputation are read directly from your StudioNet address.</p>
       <button class="primary-button" type="button" @click="connect">Connect wallet</button>
     </section>
+    <DataLoader
+      v-else-if="!state.profile && (state.loading || state.refreshing)"
+      label="Reading your on-chain portfolio"
+    />
     <template v-else>
       <header class="profile-heading">
         <div><span class="eyebrow">On-chain portfolio</span><h1>{{ state.wallet }}</h1></div>

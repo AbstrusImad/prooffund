@@ -24,6 +24,7 @@ import {
   TimerReset,
 } from "lucide-vue-next";
 import BaseModal from "../components/BaseModal.vue";
+import DataLoader from "../components/DataLoader.vue";
 import { useProofFund } from "../stores/proofFund";
 import { formatError, fromWei, toWei } from "../services/genlayer";
 import { projectImage, useImageFallback } from "../utils/projectImage";
@@ -41,6 +42,7 @@ const data = reactive({
   votes: {},
 });
 const loading = ref(true);
+const refreshingProject = ref(false);
 const loadError = ref("");
 const modal = ref("");
 const selectedMilestone = ref(null);
@@ -72,14 +74,19 @@ const proposalForm = reactive({
 });
 
 const reload = async () => {
-  loading.value = true;
+  const firstLoad = !data.project;
+  loading.value = firstLoad;
+  refreshingProject.value = !firstLoad;
   loadError.value = "";
   try {
     Object.assign(data, await loadProject(route.params.id));
   } catch (error) {
-    loadError.value = formatError(error);
+    const message = formatError(error);
+    if (firstLoad) loadError.value = message;
+    else actionError.value = message;
   } finally {
     loading.value = false;
+    refreshingProject.value = false;
   }
 };
 
@@ -501,7 +508,7 @@ const releaseReady = (milestone) =>
 
 <template>
   <div v-if="loading" class="page project-loading">
-    <div class="skeleton-line wide"></div><div class="skeleton-line"></div>
+    <DataLoader label="Opening project escrow and evidence" />
   </div>
   <div v-else-if="loadError" class="page">
     <section class="empty-state">
@@ -511,7 +518,10 @@ const releaseReady = (milestone) =>
       <button class="primary-button" type="button" @click="reload">Retry project data</button>
     </section>
   </div>
-  <div v-else-if="data.project" class="page project-page">
+  <div v-else-if="data.project" class="page project-page" :aria-busy="refreshingProject">
+    <div v-if="refreshingProject" class="project-refresh-current" role="status">
+      <i /> Synchronizing live project state
+    </div>
     <RouterLink class="back-link" to="/"><ArrowLeft :size="16" /> Project registry</RouterLink>
 
     <section class="project-hero">

@@ -10,6 +10,7 @@ import {
   Sparkles,
 } from "lucide-vue-next";
 import ProjectCard from "../components/ProjectCard.vue";
+import DataLoader from "../components/DataLoader.vue";
 import { useProofFund } from "../stores/proofFund";
 import { fromWei } from "../services/genlayer";
 
@@ -109,9 +110,10 @@ const projects = computed(() =>
         </div>
       </div>
 
-      <div v-if="state.loading" class="project-grid">
-        <div v-for="item in 3" :key="item" class="skeleton-card"></div>
-      </div>
+      <DataLoader
+        v-if="!state.initialized && !state.error && !state.projects.length"
+        label="Opening the project registry"
+      />
       <div v-else-if="projects.length" class="project-grid">
         <ProjectCard v-for="project in projects" :key="project.id" :project="project" />
       </div>

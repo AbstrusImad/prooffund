@@ -33,7 +33,7 @@ const transactionPending = computed(() =>
 onMounted(async () => {
   watchWallet();
   await restoreWallet();
-  await refresh();
+  await refresh({ initial: true });
   authReady.value = true;
 });
 
@@ -109,6 +109,12 @@ const refreshSafely = async () => {
     <main class="flow-stage">
       <div v-if="!contractAddress" class="configuration-alert">
         CONTRACT SOURCE IS CLOSED
+      </div>
+      <div v-else-if="state.error && isConnected" class="network-read-alert" role="alert">
+        <span>{{ state.error }}</span>
+        <button type="button" :disabled="refreshing" @click="refreshSafely">
+          <RefreshCw :size="14" /> Retry StudioNet
+        </button>
       </div>
       <RouterView />
     </main>

@@ -10,9 +10,10 @@ import {
   X,
 } from "lucide-vue-next";
 import { useProofFund } from "../stores/proofFund";
+import DataLoader from "../components/DataLoader.vue";
 import { formatError, fromWei } from "../services/genlayer";
 
-const { state, isConnected, connect, transact, refresh } = useProofFund();
+const { state, isConnected, connect, transact } = useProofFund();
 const filter = ref("OPEN");
 const workingId = ref("");
 const actionError = ref("");
@@ -43,7 +44,6 @@ const vote = async (proposal, support) => {
       0n,
       { successMessage: `${support ? "YES" : "NO"} vote recorded with contribution weight.` },
     );
-    await refresh();
   } catch (error) {
     actionError.value = formatError(error);
   } finally {
@@ -63,7 +63,6 @@ const finalize = async (proposal) => {
       0n,
       { successMessage: "Proposal finalized and approved action executed." },
     );
-    await refresh();
   } catch (error) {
     actionError.value = formatError(error);
   } finally {
@@ -119,7 +118,11 @@ const formatDate = (timestamp) =>
 
     <p v-if="actionError" class="action-error governance-error">{{ actionError }}</p>
 
-    <div v-if="proposals.length" class="proposal-grid">
+    <DataLoader
+      v-if="!state.initialized && !state.error"
+      label="Opening contribution-weighted governance"
+    />
+    <div v-else-if="proposals.length" class="proposal-grid">
       <article v-for="proposal in proposals" :key="proposal.id" class="proposal-card">
         <header>
           <div>

@@ -15,6 +15,8 @@ const state = reactive({
   dashboard: null,
   profile: null,
   loading: false,
+  refreshing: false,
+  initialized: false,
   error: "",
   transaction: null,
 });
@@ -22,18 +24,38 @@ const state = reactive({
 const shortAddress = (address) =>
   address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "";
 
-async function refresh() {
-  state.loading = true;
+let refreshPromise = null;
+
+async function refresh({ initial = false } = {}) {
+  if (refreshPromise) {
+    try {
+      await refreshPromise;
+    } catch {
+      // The original refresh owns the user-facing error state.
+    }
+    return;
+  }
+  const blocking = initial && !state.initialized;
+  state.loading = blocking;
+  state.refreshing = !blocking;
   state.error = "";
-  try {
+  refreshPromise = (async () => {
     const [dashboard, projects, proposals] = await Promise.all([
       readContract("get_dashboard"),
       readContract("get_projects"),
       readContract("get_governance"),
     ]);
-    state.dashboard = dashboard;
-    state.projects = Array.isArray(projects) ? projects : [];
-    state.proposals = Array.isArray(proposals) ? proposals : [];
+    const nextProjects = Array.isArray(projects) ? projects : [];
+    const nextProposals = Array.isArray(proposals) ? proposals : [];
+    if (JSON.stringify(state.dashboard) !== JSON.stringify(dashboard)) {
+      state.dashboard = dashboard;
+    }
+    if (JSON.stringify(state.projects) !== JSON.stringify(nextProjects)) {
+      state.projects = nextProjects;
+    }
+    if (JSON.stringify(state.proposals) !== JSON.stringify(nextProposals)) {
+      state.proposals = nextProposals;
+    }
     if (state.wallet) {
       const [profile, votes] = await Promise.all([
         readContract("get_profile", [state.wallet]),
@@ -44,15 +66,26 @@ async function refresh() {
           ]),
         ),
       ]);
-      state.profile = profile;
-      state.proposalVotes = Object.fromEntries(votes);
+      const nextVotes = Object.fromEntries(votes);
+      if (JSON.stringify(state.profile) !== JSON.stringify(profile)) {
+        state.profile = profile;
+      }
+      if (JSON.stringify(state.proposalVotes) !== JSON.stringify(nextVotes)) {
+        state.proposalVotes = nextVotes;
+      }
     } else {
       state.proposalVotes = {};
     }
+    state.initialized = true;
+  })();
+  try {
+    await refreshPromise;
   } catch (error) {
     state.error = error.message || "Unable to read StudioNet.";
   } finally {
     state.loading = false;
+    state.refreshing = false;
+    refreshPromise = null;
   }
 }
 

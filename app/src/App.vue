@@ -41,8 +41,8 @@ const connectSafely = async () => {
   connecting.value = true;
   try {
     await connect();
-  } catch (error) {
-    console.error(error);
+  } catch {
+    // The store exposes wallet failures in the landing state.
   } finally {
     connecting.value = false;
   }
@@ -64,6 +64,8 @@ const refreshSafely = async () => {
     <strong>READING THE PUBLIC LEDGER</strong>
   </div>
 
+  <RouterView v-else-if="$route.name === 'guide'" />
+
   <ProofLanding
     v-else-if="!isConnected"
     :connecting="connecting"
@@ -84,6 +86,7 @@ const refreshSafely = async () => {
       <RouterLink to="/projects/new"><span>02</span>SOURCE</RouterLink>
       <RouterLink to="/governance"><span>03</span>VOTE</RouterLink>
       <RouterLink to="/profile"><span>04</span>CLAIM</RouterLink>
+      <RouterLink to="/guide"><span>05</span>GUIDE</RouterLink>
     </nav>
 
     <div class="network-valves">

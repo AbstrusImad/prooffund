@@ -91,12 +91,20 @@ async function refresh({ initial = false } = {}) {
 
 async function connect() {
   state.error = "";
-  const session = await connectWallet();
-  if (!session) return;
-  state.wallet = session.address;
-  state.client = session.client;
-  localStorage.setItem("prooffund.wallet.connected", "1");
-  await refresh();
+  try {
+    const session = await connectWallet();
+    if (!session) {
+      state.error = "Select an account in your browser wallet to enter ProofFund.";
+      return;
+    }
+    state.wallet = session.address;
+    state.client = session.client;
+    localStorage.setItem("prooffund.wallet.connected", "1");
+    await refresh();
+  } catch (error) {
+    state.error = formatError(error);
+    throw error;
+  }
 }
 
 async function restoreWallet() {

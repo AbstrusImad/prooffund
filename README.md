@@ -3,6 +3,7 @@
 **A pressure map for accountable capital on GenLayer StudioNet**
 
 [Enter the live protocol](https://abstrusimad.github.io/prooffund/) |
+[Read the operator guide](https://abstrusimad.github.io/prooffund/guide) |
 [Inspect the contract](https://explorer-studio.genlayer.com/address/0xC23Fa278dAeDeC6cB8b44239d8260d6906693Fa7) |
 [Trace the deployment](https://explorer-studio.genlayer.com/tx/0xe6ffb02e2da06b450d520d76510fd7dddc7cc32192264c7bd29d235babae51c6)
 
@@ -166,6 +167,14 @@ The Vue application is organized as four perimeter routes:
   totals.
 - **CLAIM** reads the connected address portfolio, owned projects, reputation,
   funded capital, and directly settled earnings.
+- **GUIDE** is a public, wallet-independent operating manual that walks through
+  project creation, full milestone coverage, tranche funding, evidence review,
+  the seven-day dispute hold, atomic appeal settlement, and terminal refunds.
+
+The guide is available directly at
+[`/prooffund/guide`](https://abstrusimad.github.io/prooffund/guide), including
+before wallet connection, so reviewers can inspect the complete workflow
+without signing a request.
 
 A disconnected visitor always enters through the dedicated wallet source valve.
 After explicit connection, the choice is persisted in

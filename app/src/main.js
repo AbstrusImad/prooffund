@@ -6,6 +6,7 @@ import ProjectView from "./views/ProjectView.vue";
 import CreateView from "./views/CreateView.vue";
 import ProfileView from "./views/ProfileView.vue";
 import GovernanceView from "./views/GovernanceView.vue";
+import GuideView from "./views/GuideView.vue";
 import "./style.css";
 
 const router = createRouter({
@@ -17,6 +18,7 @@ const router = createRouter({
     { path: "/projects/:id", name: "project", component: ProjectView },
     { path: "/profile", name: "profile", component: ProfileView },
     { path: "/governance", name: "governance", component: GovernanceView },
+    { path: "/guide", name: "guide", component: GuideView },
   ],
 });
 

@@ -1,6 +1,6 @@
 import { createClient } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
-import { ExecutionResult, TransactionStatus } from "genlayer-js/types";
+import { ExecutionResult } from "genlayer-js/types";
 
 export const contractAddress = import.meta.env.VITE_CONTRACT_ADDRESS || "";
 export const explorerUrl =
@@ -38,8 +38,11 @@ export async function connectWallet({ silent = false } = {}) {
   });
   const address = accounts?.[0];
   if (!address) return null;
-  const client = createClient({ chain: studionet, account: address });
-  if (!silent) await client.connect("studionet");
+  const client = createClient({
+    chain: studionet,
+    account: address,
+    provider: window.ethereum,
+  });
   return { address, client };
 }
 
@@ -154,6 +157,39 @@ export function extractReturnValue(receipt) {
   }
 }
 
+const terminalStatuses = new Set([
+  "ACCEPTED",
+  "UNDETERMINED",
+  "FINALIZED",
+  "CANCELED",
+  "VALIDATORS_TIMEOUT",
+  "LEADER_TIMEOUT",
+]);
+const terminalStatusNumbers = new Set([5, 6, 7, 8, 12, 13]);
+
+async function waitForDecision(hash) {
+  for (let attempt = 0; attempt < 180; attempt += 1) {
+    try {
+      const transaction = await retryNetworkBusy(
+        () => publicClient.getTransaction({ hash }),
+        6,
+      );
+      const statusName = String(transaction?.statusName || "").toUpperCase();
+      const statusNumber = Number(transaction?.status);
+      if (
+        terminalStatuses.has(statusName) ||
+        terminalStatusNumbers.has(statusNumber)
+      ) {
+        return transaction;
+      }
+    } catch (error) {
+      if (attempt === 179) throw error;
+    }
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 3_000));
+  }
+  throw new Error("Timed out while StudioNet was finalizing the transaction.");
+}
+
 export async function writeContract(
   client,
   functionName,
@@ -164,7 +200,6 @@ export async function writeContract(
   assertContract();
   if (!client) throw new Error("Connect your wallet before continuing.");
 
-  await client.connect("studionet");
   const hash = await retryNetworkBusy(() =>
     client.writeContract({
       address: contractAddress,
@@ -175,12 +210,7 @@ export async function writeContract(
   );
   onSubmitted?.(hash);
 
-  const receipt = await client.waitForTransactionReceipt({
-    hash,
-    status: TransactionStatus.ACCEPTED,
-    interval: 3_000,
-    retries: 100,
-  });
+  const receipt = await waitForDecision(hash);
 
   const studioExecution =
     receipt?.consensus_data?.leader_receipt?.[0]?.execution_result ||
